@@ -147,37 +147,52 @@ function renderTrainResults(trains) {
     }
 
     resDiv.innerHTML = trains.map(t => `
-        <div class="train-card glass">
-            <div class="train-main">
-                <span class="train-type">${t.train_type}</span>
-                <div class="train-name">${t.train_name}</div>
-                <div class="train-num">#${t.train_number}</div>
+        <div class="train-card">
+            <div class="train-header">
+                <div class="train-info">
+                    <span class="type">${t.train_type}</span>
+                    <div class="name">${t.train_name}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">#${t.train_number}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.75rem, font-weight: 800, color: var(--success);">● LIVE: ON TIME</div>
+                    <div style="font-size: 0.75rem, color: var(--text-muted);">Platform: 1</div>
+                </div>
             </div>
-            <div class="train-timetable">
-                <div class="time-slot">
+            
+            <div class="train-route">
+                <div class="route-point">
                     <div class="time">17:00</div>
-                    <div class="station">Mumbai</div>
+                    <div class="station">${t.source_name || 'Source'}</div>
                 </div>
-                <div class="duration">15h 30m</div>
-                <div class="time-slot">
+                <div class="route-path">
+                    <div class="duration">15h 30m</div>
+                </div>
+                <div class="route-point">
                     <div class="time">08:30</div>
-                    <div class="station">Delhi</div>
+                    <div class="station">${t.dest_name || 'Destination'}</div>
                 </div>
             </div>
-            <div>
-                <button class="btn btn-primary" onclick="startBooking(${t.instance_id})">Book Now</button>
-            </div>
-            <div class="availability-grid">
-                ${t.classes.map(c => `
-                    <div class="class-chip">
-                        <div class="code">${c.class_code}</div>
-                        <div class="fare">₹${c.base_fare}</div>
-                        <div class="seats">${c.available_seats} Available</div>
-                    </div>
-                `).join('')}
+
+            <div class="train-footer">
+                <div class="availability-row">
+                    ${t.classes.map(c => `
+                        <div class="class-card" onclick="selectClass(this, ${c.base_fare})">
+                            <div class="code">${c.class_code}</div>
+                            <div class="price">₹${c.base_fare}</div>
+                            <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">WL: 12</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="btn btn-primary" style="padding: 12px 40px;" onclick="startBooking(${t.instance_id})">Book Now</button>
             </div>
         </div>
     `).join('');
+}
+
+function selectClass(el, fare) {
+    document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
 }
 
 // ── AUTH ──

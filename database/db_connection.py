@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-USE_SQLITE = os.getenv("USE_SQLITE", "true").lower() == "true"
+# Default to false so it tries PostgreSQL first in production/vercel
+USE_SQLITE = os.getenv("USE_SQLITE", "false").lower() == "true"
 SQLITE_DB = "database/railway.db"
 
 def get_connection():

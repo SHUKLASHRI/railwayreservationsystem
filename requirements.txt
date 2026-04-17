@@ -1,6 +1,8 @@
 Flask
-mysql-connector-python
+flask-cors
 bcrypt
-pyotp
 python-dotenv
 psycopg2-binary
+fpdf2
+qrcode
+Pillow

@@ -107,7 +107,10 @@ def download_ticket(pnr):
     booking = data['booking']
     passengers = data['passengers']
     
-    pdf_dir = "static/tickets"
+    # Use /tmp on Vercel for writable filesystem
+    is_vercel = os.getenv('VERCEL') == '1'
+    pdf_dir = "/tmp/tickets" if is_vercel else "static/tickets"
+    
     os.makedirs(pdf_dir, exist_ok=True)
     pdf_path = f"{pdf_dir}/ticket_{pnr}.pdf"
     
