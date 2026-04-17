@@ -39,6 +39,8 @@ function handleRouting() {
         renderHome();
     } else if (path === '/pnr') {
         renderPNR();
+    } else if (path === '/tracking') {
+        renderTracking();
     } else if (path === '/dashboard') {
         renderDashboard();
     } else {
@@ -63,7 +65,7 @@ function renderHome() {
                 <div class="field-group">
                     <label>From Station</label>
                     <div class="input-wrapper">
-                        <input type="text" id="fromInput" placeholder="Enter City/Station" oninput="handleStationSearch(this, 'fromSuggestions')"/>
+                        <input type="text" id="fromInput" placeholder="Enter City/Station" oninput="debouncedStationSearch(this, 'fromSuggestions')"/>
                         <div class="input-icon">📍</div>
                         <div id="fromSuggestions" class="suggestions"></div>
                         <input type="hidden" id="fromId" />
@@ -72,7 +74,7 @@ function renderHome() {
                 <div class="field-group">
                     <label>To Station</label>
                     <div class="input-wrapper">
-                        <input type="text" id="toInput" placeholder="Enter City/Station" oninput="handleStationSearch(this, 'toSuggestions')"/>
+                        <input type="text" id="toInput" placeholder="Enter City/Station" oninput="debouncedStationSearch(this, 'toSuggestions')"/>
                         <div class="input-icon">🚉</div>
                         <div id="toSuggestions" class="suggestions"></div>
                         <input type="hidden" id="toId" />
@@ -92,6 +94,21 @@ function renderHome() {
     `;
 }
 
+// ── DEBOUNCE UTILITY ──
+const debounce = (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+};
+
+const debouncedStationSearch = debounce(handleStationSearch, 300);
+
 async function handleStationSearch(input, suggestionsId) {
     const q = input.value.trim();
     const box = document.getElementById(suggestionsId);
@@ -101,7 +118,7 @@ async function handleStationSearch(input, suggestionsId) {
     const stations = await resp.json();
     
     box.innerHTML = stations.map(s => `
-        <div class="suggestion-item" onclick="selectStation('${suggestionsId}', '${s.station_name}', ${s.station_id})">
+        <div class="suggestion-item" onclick="selectStation('${suggestionsId}', '${s.station_name}', '${s.station_code}')">
             <strong>${s.station_code}</strong> — ${s.station_name}
         </div>
     `).join('');
@@ -463,6 +480,85 @@ async function renderDashboard() {
             </div>
         </div>
     `).join('');
+}
+
+// ── LIVE TRACKING VIEW ──
+function renderTracking() {
+    document.getElementById('app').innerHTML = `
+    <div class="container" style="padding: 160px 0;">
+        <div class="glass" style="max-width: 800px; margin: 0 auto; padding: 40px; border-radius: 24px;">
+            <div style="text-align: center; margin-bottom: 40px;">
+                <h2 style="margin-bottom: 10px;">Live Train Tracking</h2>
+                <p style="color: var(--text-muted);">Enter train number to see real-time location and status.</p>
+            </div>
+            
+            <div class="search-grid" style="grid-template-columns: 1fr auto;">
+                <div class="field-group">
+                    <div class="input-wrapper">
+                        <input type="text" id="trackQuery" placeholder="e.g. 12137 (Punjab Mail)" style="font-size: 1.25rem;"/>
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="padding: 0 40px;" onclick="checkLiveStatus()">Track Now</button>
+            </div>
+            
+            <div id="trackingResult" style="margin-top: 40px;"></div>
+        </div>
+    </div>
+    `;
+}
+
+async function checkLiveStatus() {
+    const trainNum = document.getElementById('trackQuery').value.trim();
+    if (!trainNum) return;
+
+    const resDiv = document.getElementById('trackingResult');
+    resDiv.innerHTML = '<div class="skeleton" style="height: 300px; border-radius: 16px;"></div>';
+
+    try {
+        const resp = await fetch(`/api/train/live/${trainNum}`);
+        const data = await resp.json();
+
+        if (data.status === 'success') {
+            const status = data.data;
+            resDiv.innerHTML = `
+                <div class="train-card" style="border: none; background: rgba(245, 247, 250, 0.5);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+                        <div>
+                            <span class="type" style="background: var(--primary); color: white;">LIVE STATUS</span>
+                            <h3 style="font-size: 1.5rem; margin-top: 10px;">${status.trainName || 'Train Name'}</h3>
+                            <div style="color: var(--text-muted); font-weight: 600;">#${trainNum}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.25rem; font-weight: 800; color: var(--success);">${status.statusMessage || 'Running on Time'}</div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem;">Last updated: ${new Date().toLocaleTimeString()}</div>
+                        </div>
+                    </div>
+
+                    <div style="position: relative; padding-left: 30px; border-left: 3px solid #E0E6ED;">
+                        ${(status.stops || []).slice(0, 5).map(stop => `
+                            <div style="position: relative; margin-bottom: 25px;">
+                                <div style="position: absolute; left: -38px; top: 5px; width: 14px; height: 14px; border-radius: 50%; background: ${stop.hasArrived ? 'var(--success)' : '#CBD5E0'}; border: 3px solid white;"></div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <div>
+                                        <div style="font-weight: 700;">${stop.stationName} (${stop.stationCode})</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);">${stop.hasArrived ? 'Arrived & Departed' : 'Upcoming'}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-weight: 700; color: var(--primary);">${stop.arrivalTime || '--:--'}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-muted);">Platform ${stop.platform || 'N/A'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            resDiv.innerHTML = `<div style="text-align: center; color: var(--accent); padding: 20px;">${data.message}</div>`;
+        }
+    } catch (e) {
+        resDiv.innerHTML = `<div style="text-align: center; color: var(--accent); padding: 20px;">Error connecting to live tracking service.</div>`;
+    }
 }
 
 // ── UTILS ──

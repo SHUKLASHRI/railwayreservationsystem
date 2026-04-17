@@ -1,11 +1,14 @@
 from flask import Blueprint, request, jsonify
 from database.db_connection import execute_query
 from services.railradar_service import RailRadarService
+from app import cache, limiter
 import random
 
 train_bp = Blueprint('train', __name__)
 
 @train_bp.route('/stations/search', methods=['GET'])
+@cache.cached(timeout=3600, query_string=True) # Cache station searches for 1 hour
+@limiter.limit("20 per minute")
 def search_stations():
     query = request.args.get('q', '').strip()
     if not query:
@@ -14,11 +17,9 @@ def search_stations():
     # Priority 1: Real-time API
     stations = RailRadarService.search_stations(query)
     if stations:
-        # Map RailRadar fields to internal format
-        # RailRadar: {code, name, ...}
         return jsonify([
             {
-                "station_id": s.get('code'), # Using code as ID for API-based search
+                "station_id": s.get('code'),
                 "station_code": s.get('code'),
                 "station_name": s.get('name'),
                 "city": s.get('name')
@@ -34,12 +35,11 @@ def search_stations():
     return jsonify([dict(r) for r in results])
 
 @train_bp.route('/search', methods=['GET'])
+@limiter.limit("5 per minute") # Stricter limit for heavy search
 def search_trains():
-    source_code = request.args.get('source_code') # Client should now send codes
+    source_code = request.args.get('source_code')
     dest_code = request.args.get('dest_code')
     date = request.args.get('date')
-
-    # If IDs were sent (legacy), search them in local DB first to get codes
     source_id = request.args.get('source_id')
     dest_id = request.args.get('dest_id')
     
@@ -52,21 +52,19 @@ def search_trains():
         if d: dest_code = d['station_code']
 
     if not source_code or not dest_code or not date:
-        return jsonify({"status": "error", "message": "Missing search parameters (Station codes required)"}), 400
+        return jsonify({"status": "error", "message": "Missing search parameters"}), 400
 
-    # Priority 1: Real-time API
     api_trains = RailRadarService.get_trains_between(source_code, dest_code, date)
     
     formatted_results = []
     if api_trains:
         for t in api_trains:
-            # Map RailRadar to internal structure
             train_data = {
-                "instance_id": f"LIVE_{t.get('trainNumber')}_{date}", # Virtual ID
+                "instance_id": f"LIVE_{t.get('trainNumber')}_{date}",
                 "train_id": t.get('trainNumber'),
                 "train_number": t.get('trainNumber'),
                 "train_name": t.get('trainName'),
-                "train_type": "Express", # Default or detect from name
+                "train_type": "Express",
                 "source_name": t.get('sourceStationCode'),
                 "dest_name": t.get('destinationStationCode'),
                 "journey_date": date,
@@ -81,13 +79,12 @@ def search_trains():
         
         return jsonify({"status": "success", "trains": formatted_results})
 
-    # Fallback: Check local DB if API returned nothing
-    # (Simplified local fallback logic)
-    return jsonify({"status": "success", "trains": [], "message": "No live trains found for this route."})
+    return jsonify({"status": "success", "trains": [], "message": "No live trains found."})
 
 @train_bp.route('/<train_number>/details', methods=['GET'])
+@cache.cached(timeout=7200) # Cache schedules for 2 hours
+@limiter.limit("10 per minute")
 def get_train_details(train_number):
-    # Try Live API first
     schedule = RailRadarService.get_train_schedule(train_number)
     if schedule:
         return jsonify({
@@ -96,10 +93,9 @@ def get_train_details(train_number):
             "schedule": schedule.get("stops", [])
         })
 
-    # Local fallback
     train = execute_query("SELECT * FROM trains WHERE train_number = %s", (train_number,), fetchone=True)
     if not train:
-        return jsonify({"status": "error", "message": "Train not found locally or in API"}), 404
+        return jsonify({"status": "error", "message": "Train not found"}), 404
     
     local_schedule = execute_query(
         "SELECT ts.*, s.station_name, s.station_code FROM train_schedules ts JOIN stations s ON ts.station_id = s.station_id WHERE ts.train_id = %s ORDER BY ts.stop_sequence",
@@ -112,3 +108,12 @@ def get_train_details(train_number):
         "train": dict(train),
         "schedule": [dict(s) for s in local_schedule]
     })
+
+@train_bp.route('/live/<train_number>', methods=['GET'])
+@limiter.limit("5 per minute") # Live status is volatile, very short cache or no cache
+def get_live_tracking(train_number):
+    status = RailRadarService.get_live_status(train_number)
+    if not status:
+        return jsonify({"status": "error", "message": "Live status currently unavailable for this train"}), 404
+    
+    return jsonify({"status": "success", "data": status})

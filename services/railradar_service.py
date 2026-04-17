@@ -17,11 +17,14 @@ class RailRadarService:
 
     @staticmethod
     def search_stations(query):
-        """Search for stations by name or code."""
+        """
+        Search for stations by name or code.
+        We'll use internal caching in routes for this to avoid circular imports.
+        """
         url = f"{BASE_URL}/search/stations"
         params = {"query": query}
         try:
-            response = requests.get(url, headers=RailRadarService._get_headers(), params=params)
+            response = requests.get(url, headers=RailRadarService._get_headers(), params=params, timeout=5)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -38,11 +41,9 @@ class RailRadarService:
             "date": date
         }
         try:
-            response = requests.get(url, headers=RailRadarService._get_headers(), params=params)
+            response = requests.get(url, headers=RailRadarService._get_headers(), params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
-            # RailRadar usually returns a list or a dict with a 'trains' key
-            # Mapping to a consistent format
             if isinstance(data, list):
                 return data
             return data.get("trains", [])
@@ -55,7 +56,7 @@ class RailRadarService:
         """Get schedule for a specific train."""
         url = f"{BASE_URL}/trains/{train_number}/schedule"
         try:
-            response = requests.get(url, headers=RailRadarService._get_headers())
+            response = requests.get(url, headers=RailRadarService._get_headers(), timeout=5)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -65,15 +66,14 @@ class RailRadarService:
     @staticmethod
     def get_live_status(train_number):
         """Get live running status."""
-        # Note: The endpoint might vary based on the exact API version, 
-        # but common pattern is /trains/{trainNumber}/live-status
+        # /api/v1/trains/{trainNumber}/live-status is the standard endpoint for real-time
         url = f"{BASE_URL}/trains/{train_number}/live-status"
         try:
-            response = requests.get(url, headers=RailRadarService._get_headers())
+            response = requests.get(url, headers=RailRadarService._get_headers(), timeout=10)
             if response.status_code == 404:
-                # Fallback to instances if live status not directly available
+                # Fallback to instances if exact live status not available
                 url = f"{BASE_URL}/trains/{train_number}/instances"
-                response = requests.get(url, headers=RailRadarService._get_headers())
+                response = requests.get(url, headers=RailRadarService._get_headers(), timeout=5)
             
             response.raise_for_status()
             return response.json()

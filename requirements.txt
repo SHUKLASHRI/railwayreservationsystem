@@ -7,3 +7,5 @@ fpdf2
 qrcode
 Pillow
 requests
+Flask-Limiter
+Flask-Caching
