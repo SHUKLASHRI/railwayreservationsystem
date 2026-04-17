@@ -108,11 +108,11 @@ async function handleStationSearch(input, suggestionsId) {
     box.classList.add('open');
 }
 
-function selectStation(suggestionsId, name, id) {
+function selectStation(suggestionsId, name, codeOrId) {
     const inputId = suggestionsId === 'fromSuggestions' ? 'fromInput' : 'toInput';
     const hiddenId = suggestionsId === 'fromSuggestions' ? 'fromId' : 'toId';
     document.getElementById(inputId).value = name;
-    document.getElementById(hiddenId).value = id;
+    document.getElementById(hiddenId).value = codeOrId;
     document.getElementById(suggestionsId).classList.remove('open');
 }
 
@@ -129,6 +129,7 @@ async function performSearch() {
     const resDiv = document.getElementById('searchResults');
     resDiv.innerHTML = '<div class="skeleton" style="height: 300px; border-radius: 16px;"></div>';
 
+    // The backend now handles both station_id (integer) and station_code (string) in these parameters
     const resp = await fetch(`/api/train/search?source_id=${fromId}&dest_id=${toId}&date=${date}`);
     const data = await resp.json();
 
