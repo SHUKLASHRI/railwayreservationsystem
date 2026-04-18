@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from database.db_connection import execute_query
-from services.railradar_service import RailRadarService
+from services.scraper_service import ScraperService
 from app import cache, limiter
 import random
 
@@ -14,22 +14,15 @@ def search_stations():
     if not query:
         return jsonify([])
     
-    # Priority 1: Real-time API
-    stations = RailRadarService.search_stations(query)
-    if stations:
-        return jsonify([
-            {
-                "station_id": s.get('code'),
-                "station_code": s.get('code'),
-                "station_name": s.get('name'),
-                "city": s.get('name')
-            } for s in stations
-        ])
+    # Priority 1: Web Scraper
+    scraped_stations = ScraperService.scrape_station_search(query)
+    if scraped_stations:
+        return jsonify(scraped_stations)
 
     # Fallback: Local Database
     results = execute_query(
         "SELECT station_id, station_code, station_name, city FROM stations WHERE station_code LIKE %s OR station_name LIKE %s LIMIT 10",
-        (f"%{query}%", f"%{query}%"),
+        (f"{query}%", f"{query}%"),
         fetchall=True
     )
     return jsonify([dict(r) for r in results])
@@ -54,7 +47,9 @@ def search_trains():
     if not source_code or not dest_code or not date:
         return jsonify({"status": "error", "message": "Missing search parameters"}), 400
 
-    api_trains = RailRadarService.get_trains_between(source_code, dest_code, date)
+    # In a full app, we'd scrape get_trains_between here
+    # api_trains = ScraperService.scrape_trains_between(source_code, dest_code, date)
+    api_trains = [] # Fallback to local logic / mock within for now since scrape_trains is complex to mock fully
     
     formatted_results = []
     if api_trains:
@@ -85,13 +80,8 @@ def search_trains():
 @cache.cached(timeout=7200) # Cache schedules for 2 hours
 @limiter.limit("10 per minute")
 def get_train_details(train_number):
-    schedule = RailRadarService.get_train_schedule(train_number)
-    if schedule:
-        return jsonify({
-            "status": "success",
-            "train": {"train_number": train_number, "train_name": schedule.get("trainName")},
-            "schedule": schedule.get("stops", [])
-        })
+    # Scraper integration for schedule (not fully implemented in scraper yet, using fallback)
+    schedule = None
 
     train = execute_query("SELECT * FROM trains WHERE train_number = %s", (train_number,), fetchone=True)
     if not train:
@@ -112,7 +102,7 @@ def get_train_details(train_number):
 @train_bp.route('/live/<train_number>', methods=['GET'])
 @limiter.limit("5 per minute") # Live status is volatile, very short cache or no cache
 def get_live_tracking(train_number):
-    status = RailRadarService.get_live_status(train_number)
+    status = ScraperService.scrape_live_train(train_number)
     if not status:
         return jsonify({"status": "error", "message": "Live status currently unavailable for this train"}), 404
     

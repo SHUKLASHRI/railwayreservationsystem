@@ -149,7 +149,7 @@ h1, h2, h3, .logo-text {
   right: 0;
   bottom: 0;
   height: 600px;
-  background: linear-gradient(135deg, var(--primary) 0%, #2c3e8f 100%);
+  background: url('static/vande_bharat.png') center/cover no-repeat;
   z-index: -1;
 }
 
@@ -196,7 +196,9 @@ h1, h2, h3, .logo-text {
 /* ── BOOKING PANEL ── */
 .booking-panel {
   padding: 32px;
-  background: white;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   position: relative;
   animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }

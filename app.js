@@ -474,7 +474,10 @@ async function handleGoogleAuth(response) {
         if (data.status === 'success') {
             showToast(t('logged_in'), "success");
             hideAuthModal();
+            window.history.pushState({}, '', '/dashboard');
+            state.currentPath = '/dashboard';
             checkAuth();
+            handleRouting();
         } else {
             showToast(data.message || 'Google login failed', "error");
         }
@@ -506,7 +509,10 @@ async function handleAuth(e) {
             } else {
                 showToast(t('logged_in'), "success");
                 hideAuthModal();
+                window.history.pushState({}, '', '/dashboard');
+                state.currentPath = '/dashboard';
                 checkAuth();
+                handleRouting();
             }
         } else {
             showToast(data.message || 'An error occurred', "error");

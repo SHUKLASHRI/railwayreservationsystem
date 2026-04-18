@@ -10,3 +10,5 @@ requests
 Flask-Limiter
 Flask-Caching
 google-auth
+beautifulsoup4
+lxml

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session, send_file
 from database.db_connection import execute_query
 from services.ticket_service import generate_ticket_pdf
+from services.scraper_service import ScraperService
 import random
 import string
 import os
@@ -83,7 +84,22 @@ def get_pnr_status(pnr):
         (pnr,), fetchone=True
     )
     if not booking:
-        return jsonify({"status": "error", "message": "PNR not found"}), 404
+        # Fallback: Web Scraper for live PNR not in our system
+        scraped_data = ScraperService.scrape_pnr_status(pnr)
+        if scraped_data.get("status") == "success":
+            return jsonify({
+                "status": "success",
+                "booking": {
+                    "pnr": scraped_data["pnr"],
+                    "train_name": scraped_data["train_name"],
+                    "from_station": scraped_data["from_station"],
+                    "to_station": scraped_data["to_station"],
+                    "journey_date": scraped_data["journey_date"]
+                },
+                "passengers": scraped_data["passengers"],
+                "live_scraped": True
+            })
+        return jsonify({"status": "error", "message": "PNR not found locally or via live tracking"}), 404
     
     passengers = execute_query(
         "SELECT p.*, tc.class_code FROM passengers p JOIN train_classes tc ON p.class_id = tc.class_id WHERE p.booking_id = %s",
