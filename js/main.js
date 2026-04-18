@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════
-   AeroRail — main.js
+   AeroRail — js/main.js
    Entry point for modular SPA
    ════════════════════════════════════════════ */
 
-import { state, i18n } from './js/state.js';
-import { handleRouting } from './js/router.js';
-import { checkAuth } from './js/auth.js';
-import { updateAuthModal } from './js/utils.js';
+import { state, i18n } from './state.js';
+import { handleRouting } from './router.js';
+import { checkAuth } from './auth.js';
+import { updateAuthModal } from './utils.js';
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
@@ -42,10 +42,6 @@ function updateNavbarLanguageSelector() {
     const navActions = document.getElementById('navActions');
     if (navActions) {
         let langSelector = navActions.querySelector('.lang-selector');
-        if (!langSelector) {
-            // If it's not there (e.g. after a re-render), check if we can find it
-            // usually it's part of the navActions innerHTML in checkAuth()
-        }
         if (langSelector) {
             langSelector.innerHTML = `
                 <select onchange="setLanguage(this.value)" class="lang-dropdown">
