@@ -152,8 +152,8 @@ function setLanguage(lang) {
 }
 
 // ── INIT ──
-document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
+document.addEventListener('DOMContentLoaded', async () => {
+    await checkAuth(); // Crucial: Load user state before routing
     handleRouting();
     updateNavbarLanguageSelector();
 
@@ -476,11 +476,12 @@ async function handleGoogleAuth(response) {
         const data = await resp.json();
 
         if (data.status === 'success') {
+            state.user = data.username; // Update state immediately
             showToast(t('logged_in'), "success");
             hideAuthModal();
             window.history.pushState({}, '', '/dashboard');
             state.currentPath = '/dashboard';
-            checkAuth();
+            await checkAuth(); // Ensure navbar is updated before routing
             handleRouting();
         } else {
             showToast(data.message || 'Google login failed', "error");
@@ -511,11 +512,12 @@ async function handleAuth(e) {
                 updateAuthModal();
                 document.getElementById('authForm').reset();
             } else {
+                state.user = data.username; // Update state immediately
                 showToast(t('logged_in'), "success");
                 hideAuthModal();
                 window.history.pushState({}, '', '/dashboard');
                 state.currentPath = '/dashboard';
-                checkAuth();
+                await checkAuth(); // Sync navbar
                 handleRouting();
             }
         } else {
