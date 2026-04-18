@@ -8,8 +8,23 @@
   ],
   "routes": [
     {
+      "src": "/js/(.*)",
+      "dest": "/js/$1"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/style.css",
+      "dest": "/style.css"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "app.py"
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
