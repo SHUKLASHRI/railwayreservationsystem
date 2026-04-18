@@ -41,13 +41,38 @@ def book_ticket():
         
         b_id = booking_id['booking_id']
 
-        # 2. Add Passengers
+        # Extract train_id for priority system math
+        train_id_row = execute_query("SELECT train_id FROM train_instances WHERE instance_id = %s", (instance_id,), fetchone=True)
+        t_id = train_id_row['train_id']
+
+        # 2. Add Passengers using Priority Waitlist System
         for p in passengers:
-            execute_query(
-                "INSERT INTO passengers (booking_id, first_name, last_name, age, gender, class_id, status, coach_number, seat_number) VALUES (%s, %s, %s, %s, %s, %s, 'CONFIRMED', %s, %s)",
-                (b_id, p['first_name'], p['last_name'], p['age'], p['gender'], p['class_id'], "S"+str(random.randint(1,5)), random.randint(1, 72)),
-                commit=True
+            # Find total seats capacity
+            config = execute_query("SELECT total_seats FROM train_seat_configurations WHERE train_id = %s AND class_id = %s", (t_id, p['class_id']), fetchone=True)
+            total_seats = config['total_seats'] if config else 50
+            
+            # Count currently assigned
+            booked_count_row = execute_query(
+                "SELECT COUNT(*) as count FROM passengers p_inner JOIN bookings b_inner ON p_inner.booking_id = b_inner.booking_id WHERE b_inner.instance_id = %s AND p_inner.class_id = %s", 
+                (instance_id, p['class_id']), fetchone=True
             )
+            booked_count = booked_count_row['count']
+            
+            if booked_count >= total_seats:
+                # Set dynamic Waitlist Priority Number logic
+                wl_num = booked_count - total_seats + 1
+                execute_query(
+                    "INSERT INTO passengers (booking_id, first_name, last_name, age, gender, class_id, status, waiting_list_number) VALUES (%s, %s, %s, %s, %s, %s, 'WAITING', %s)",
+                    (b_id, p['first_name'], p['last_name'], p['age'], p['gender'], p['class_id'], wl_num),
+                    commit=True
+                )
+            else:
+                # Set solid seat mapping
+                execute_query(
+                    "INSERT INTO passengers (booking_id, first_name, last_name, age, gender, class_id, status, coach_number, seat_number) VALUES (%s, %s, %s, %s, %s, %s, 'CONFIRMED', %s, %s)",
+                    (b_id, p['first_name'], p['last_name'], p['age'], p['gender'], p['class_id'], "S"+str(random.randint(1,5)), booked_count + 1),
+                    commit=True
+                )
 
         return jsonify({"status": "success", "pnr": pnr, "message": "Booking successful"})
     except Exception as e:

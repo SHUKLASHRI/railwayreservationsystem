@@ -237,8 +237,12 @@ function renderHome() {
                                     <input type="date" class="rounded-input" id="journeyDate" value="${new Date().toISOString().split('T')[0]}"/>
                                 </div>
                             </div>
-                            <div class="field-group">
-                                <label>&nbsp;</label>
+                            <div class="field-group" style="grid-column: span 2; display: flex; gap: 15px; margin-top: 10px; flex-wrap: wrap;">
+                                <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;"><input type="checkbox" id="pwdConcession" style="width: 16px; height: 16px;"> Person With Disability Concession</label>
+                                <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;"><input type="checkbox" id="flexDate" style="width: 16px; height: 16px;"> Flexible With Date</label>
+                                <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;"><input type="checkbox" id="passConcession" style="width: 16px; height: 16px;"> Railway Pass Concession</label>
+                            </div>
+                            <div class="field-group" style="grid-column: span 2; margin-top: 10px;">
                                 <button class="pill-btn pill-btn-primary" onclick="performSearch()" style="width: 100%;">${t('find_trains')}</button>
                             </div>
                         </div>
@@ -631,12 +635,21 @@ async function startBooking(instanceId) {
                 </div>
             </div>
             <button class="btn" style="margin-bottom: 30px; background: var(--border-light); color: var(--text-main);" onclick="addPassengerField()">+ Add Another Passenger</button>
-            <div style="border-top: 1px solid var(--border); padding-top: 30px; display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                   <span style="font-size: 0.875rem; color: var(--text-muted);">${t('total_amount')}</span>
-                   <div id="totalFareDisplay" style="font-size: 1.5rem; font-weight: 800; color: var(--accent);">₹2200</div>
+            <div style="border-top: 1px solid var(--border); padding-top: 30px; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <h4 style="margin-bottom: 15px; color: var(--primary);">Payment Gateway</h4>
+                        <img src="/static/qr_code.png" alt="UPI QR Code" style="width: 150px; height: 150px; border-radius: 8px; border: 2px solid var(--border-light); margin-bottom: 15px;"/>
+                        <div class="input-wrapper">
+                            <input type="text" id="upiIdInput" class="rounded-input" placeholder="Enter UPI Transaction ID" style="width: 100%;" required />
+                        </div>
+                    </div>
+                    <div style="text-align: right; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end;">
+                       <span style="font-size: 0.875rem; color: var(--text-muted);">${t('total_amount')}</span>
+                       <div id="totalFareDisplay" style="font-size: 2rem; font-weight: 800; color: var(--accent); margin-bottom: 20px;">₹30</div>
+                       <button class="pill-btn pill-btn-primary" onclick="confirmBooking(${instanceId})" style="padding: 16px 32px; font-size: 1.1rem;">${t('confirm_pay')}</button>
+                    </div>
                 </div>
-                <button class="pill-btn pill-btn-primary" onclick="confirmBooking(${instanceId})">${t('confirm_pay')}</button>
             </div>
         </div>
         <button class="btn" style="position: absolute; top: 16px; right: 16px; padding: 8px 12px; background: var(--border-light); color: var(--text-main); border-radius: 8px;" onclick="document.getElementById('bookingModal').style.display='none'">✕</button>
@@ -672,7 +685,13 @@ async function confirmBooking(instanceId) {
         class_id: 3
     }));
 
-    const totalFare = passengers.length * 2200;
+    const upiInput = document.getElementById('upiIdInput').value.trim();
+    if (!upiInput) {
+        showToast('Please enter your UPI Transaction ID to confirm payment.', 'error');
+        return;
+    }
+
+    const totalFare = 30; // Hardcoded mock price as requested
 
     try {
         const resp = await fetch('/api/booking/book', {
