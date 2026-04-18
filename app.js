@@ -462,6 +462,27 @@ function selectClass(el, fare) {
 }
 
 // ── AUTH ──
+async function handleGoogleAuth(response) {
+    try {
+        const resp = await fetch('/api/auth/google-login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({credential: response.credential})
+        });
+        const data = await resp.json();
+
+        if (data.status === 'success') {
+            showToast(t('logged_in'), "success");
+            hideAuthModal();
+            checkAuth();
+        } else {
+            showToast(data.message || 'Google login failed', "error");
+        }
+    } catch (err) {
+        showToast('Connection error during Google login. Please try again.', "error");
+    }
+}
+
 async function handleAuth(e) {
     e.preventDefault();
     const user = document.getElementById('authUsername').value;
@@ -529,6 +550,18 @@ function showAuthModal() {
     document.getElementById('authModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
     updateAuthModal();
+    
+    // Initialize Google Login Button
+    if (window.google) {
+        google.accounts.id.initialize({
+            client_id: "250263355121-nb6fujn8r92kvjavrlbgpqbp1e7vgcj7.apps.googleusercontent.com",
+            callback: handleGoogleAuth
+        });
+        google.accounts.id.renderButton(
+            document.getElementById("googleAuthButton"),
+            { theme: "outline", size: "large", type: "standard", shape: "pill", width: 250, text: "continue_with" }
+        );
+    }
 }
 function hideAuthModal() {
     document.getElementById('authModal').style.display = 'none';

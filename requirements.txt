@@ -9,3 +9,4 @@ Pillow
 requests
 Flask-Limiter
 Flask-Caching
+google-auth
