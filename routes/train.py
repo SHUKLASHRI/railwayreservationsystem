@@ -57,34 +57,43 @@ def search_trains():
     if not source_code or not dest_code or not date:
         return jsonify({"status": "error", "message": f"Missing parameters: source={source_code}, dest={dest_code}, date={date}"}), 400
 
-    # In a full app, we'd scrape get_trains_between here
-    # api_trains = ScraperService.scrape_trains_between(source_code, dest_code, date)
-    api_trains = [] # Fallback to local logic / mock within for now since scrape_trains is complex to mock fully
-    
-    formatted_results = []
-    if api_trains:
-        for t in api_trains:
-            train_data = {
-                "instance_id": f"LIVE_{t.get('trainNumber')}_{date}",
-                "train_id": t.get('trainNumber'),
-                "train_number": t.get('trainNumber'),
-                "train_name": t.get('trainName'),
-                "train_type": "Express",
-                "source_name": t.get('sourceStationCode'),
-                "dest_name": t.get('destinationStationCode'),
-                "journey_date": date,
-                "status": "RUNNING",
-                "classes": [
-                    {"class_code": "3A", "class_name": "AC 3 Tier", "total_seats": 180, "base_fare": 1250, "available_seats": random.randint(10, 50)},
-                    {"class_code": "2A", "class_name": "AC 2 Tier", "total_seats": 60, "base_fare": 1800, "available_seats": random.randint(2, 15)},
-                    {"class_code": "SL", "class_name": "Sleeper", "total_seats": 400, "base_fare": 550, "available_seats": random.randint(0, 5)}
-                ]
-            }
+    # ── FALLBACK: LOCAL DATABASE SEARCH ──
+    # If no live trains found by scraper (or scraper disabled), we check our seeded database
+    local_trains = execute_query("""
+        SELECT i.instance_id, t.train_id, t.train_number, t.train_name, t.train_type, 
+               s1.station_name as source_name, s2.station_name as dest_name, 
+               i.journey_date, i.status
+        FROM train_instances i
+        JOIN trains t ON i.train_id = t.train_id
+        JOIN stations s1 ON t.source_station_id = s1.station_id
+        JOIN stations s2 ON t.destination_station_id = s2.station_id
+        WHERE s1.station_code = %s AND s2.station_code = %s AND i.journey_date = %s
+    """, (source_code, dest_code, date), fetchall=True)
+
+    if local_trains:
+        formatted_results = []
+        for lt in local_trains:
+            # Fetch seat configs for this train
+            classes = execute_query("""
+                SELECT c.class_code, c.class_name, s.total_seats, s.base_fare
+                FROM train_seat_configurations s
+                JOIN train_classes c ON s.class_id = c.class_id
+                WHERE s.train_id = %s
+            """, (lt['train_id'],), fetchall=True)
+            
+            train_data = dict(lt)
+            train_data['journey_date'] = str(lt['journey_date'])
+            train_data['classes'] = [dict(c) for c in classes]
+            
+            # Add randomized availability to make it feel "live"
+            for c in train_data['classes']:
+                c['available_seats'] = random.randint(0, 50)
+                
             formatted_results.append(train_data)
         
         return jsonify({"status": "success", "trains": formatted_results})
 
-    return jsonify({"status": "success", "trains": [], "message": "No live trains found."})
+    return jsonify({"status": "success", "trains": [], "message": "No trains found for this route and date."})
 
 @train_bp.route('/<train_number>/details', methods=['GET'])
 @cache.cached(timeout=7200) # Cache schedules for 2 hours

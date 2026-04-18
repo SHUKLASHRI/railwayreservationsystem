@@ -19,12 +19,18 @@ export async function performSearch() {
         const data = await resp.json();
 
         if (data.status === 'success') {
-            renderTrainResults(data.trains);
+            renderTrainResults(data.trains, data.message);
         } else {
-            if (resDiv) resDiv.innerHTML = `<p style="text-align: center; color: var(--text-muted); padding: 40px;">${data.message}</p>`;
+            if (resDiv) resDiv.innerHTML = `
+                <div style="text-align: center; padding: 60px 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">🔍</div>
+                    <p style="color: var(--text-muted); font-size: 1.1rem; line-height: 1.6;">${data.message || 'No trains found.'}<br/>
+                    <span style="font-size: 0.9rem;">Try searching for <strong>New Delhi (NDLS)</strong> to <strong>Mumbai Central (BCT)</strong> to see the seeded results.</span></p>
+                </div>
+            `;
         }
     } catch (err) {
-        if (resDiv) resDiv.innerHTML = `<p style="text-align: center; color: var(--accent);">Error loading trains. Please try again.</p>`;
+        if (resDiv) resDiv.innerHTML = `<p style="text-align: center; color: var(--accent); padding: 40px;">Error connecting to the booking service. Please refresh and try again.</p>`;
     }
 }
 

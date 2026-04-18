@@ -18,10 +18,19 @@ def get_connection():
     """
     if not USE_SQLITE and DATABASE_URL:
         try:
-            conn = psycopg2.connect(DATABASE_URL, connect_timeout=3)
+            # For serverless environments like Vercel, connections might need sslmode
+            # Only append if not already present
+            url = DATABASE_URL
+            if 'sslmode=' not in url and '?' in url:
+                url += '&sslmode=require'
+            elif 'sslmode=' not in url:
+                url += '?sslmode=require'
+                
+            conn = psycopg2.connect(url, connect_timeout=5)
             return conn
         except Exception as e:
-            print(f"PostgreSQL connection failed: {e}. Falling back to SQLite.")
+            # Critical: Log the error on the server side (Vercel logs)
+            print(f"PostgreSQL connection failed: {str(e)}")
     
     # Ensure database directory exists
     os.makedirs(os.path.dirname(SQLITE_DB), exist_ok=True)
