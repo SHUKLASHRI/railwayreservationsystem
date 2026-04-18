@@ -35,12 +35,13 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    user = execute_query("SELECT user_id, username, password_hash FROM users WHERE username = %s", (username,), fetchone=True)
-
+    user = execute_query("SELECT user_id, username, password_hash, role FROM users WHERE username = %s", (username,), fetchone=True)
+    
     if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash'].encode('utf-8')):
         session['user_id'] = user['user_id']
         session['username'] = user['username']
-        return jsonify({"status": "success", "username": username}), 200
+        session['role'] = user['role']
+        return jsonify({"status": "success", "username": username, "role": user['role']}), 200
 
     return jsonify({"status": "error", "message": "Invalid credentials"}), 401
 
@@ -85,8 +86,9 @@ def google_login():
         # Log the user in
         session['user_id'] = user['user_id']
         session['username'] = user['username']
+        session['role'] = user.get('role', 'customer')
         
-        return jsonify({"status": "success", "username": user['username'], "name": name}), 200
+        return jsonify({"status": "success", "username": user['username'], "name": name, "role": session['role']}), 200
 
     except ValueError:
         # Invalid token
@@ -101,5 +103,9 @@ def logout():
 @auth_bp.route('/current-user', methods=['GET'])
 def current_user():
     if 'user_id' in session:
-        return jsonify({"logged_in": True, "username": session['username']})
+        return jsonify({
+            "logged_in": True, 
+            "username": session['username'],
+            "role": session.get('role', 'customer')
+        })
     return jsonify({"logged_in": False}), 200

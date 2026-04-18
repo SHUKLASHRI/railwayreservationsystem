@@ -33,10 +33,12 @@ def create_app():
     from routes.auth import auth_bp
     from routes.train import train_bp
     from routes.booking import booking_bp
+    from routes.admin import admin_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(train_bp, url_prefix='/api/train')
     app.register_blueprint(booking_bp, url_prefix='/api/booking')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
     # Serve the frontend
     @app.route('/')
