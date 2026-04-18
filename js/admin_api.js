@@ -14,5 +14,8 @@ export const adminApi = {
     processRefund: (id) => fetch(`/api/admin/refunds/process/${id}`, { method: 'POST' }).then(r => r.json()),
     
     getLogs: () => fetch('/api/admin/logs').then(r => r.json()),
-    getLiveStatus: () => fetch('/api/admin/live-status').then(r => r.json())
+    getLiveStatus: () => fetch('/api/admin/live-status').then(r => r.json()),
+    getPassengers: () => fetch('/api/admin/passengers').then(r => r.json()),
+    getTrainInstances: () => fetch('/api/admin/train-instances').then(r => r.json()),
+    getTrainClasses: () => fetch('/api/admin/train-classes').then(r => r.json())
 };

@@ -1,19 +1,8 @@
 from flask import Flask, send_from_directory, session, request
 from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from flask_caching import Cache
 import os
 from datetime import timedelta
-
-# Initialize Extensions
-# we need these accessible for blueprints, but we'll init them in create_app
-cache = Cache(config={'CACHE_TYPE': 'SimpleCache'})
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://"
-)
+from extensions import cache, limiter
 
 def create_app():
     app = Flask(__name__, static_url_path='', static_folder='.')
@@ -29,7 +18,6 @@ def create_app():
     limiter.init_app(app)
 
     # Register Blueprints
-    # Importing here to avoid circular imports if they use the app or limiter
     from routes.auth import auth_bp
     from routes.train import train_bp
     from routes.booking import booking_bp
@@ -47,7 +35,6 @@ def create_app():
 
     @app.errorhandler(404)
     def not_found(e):
-        # Support SPA routing by redirecting unknown routes to index.html
         return send_from_directory('.', 'index.html')
 
     return app
@@ -55,6 +42,5 @@ def create_app():
 app = create_app()
 
 if __name__ == '__main__':
-    # Ensure directories exist
     os.makedirs('static/tickets', exist_ok=True)
     app.run(debug=True, port=8000)

@@ -161,3 +161,21 @@ def get_passengers():
         ORDER BY p.passenger_id DESC
     """, fetchall=True)
     return jsonify([dict(p) for p in passengers])
+
+# ── TRAIN INSTANCE & CLASS MANAGEMENT ──
+@admin_bp.route('/train-instances', methods=['GET'])
+@admin_required
+def get_train_instances():
+    data = execute_query("""
+        SELECT i.*, t.train_name, t.train_number 
+        FROM train_instances i
+        JOIN trains t ON i.train_id = t.train_id
+        ORDER BY i.journey_date DESC
+    """, fetchall=True)
+    return jsonify([dict(d) for d in data])
+
+@admin_bp.route('/train-classes', methods=['GET'])
+@admin_required
+def get_train_classes():
+    data = execute_query("SELECT * FROM train_classes", fetchall=True)
+    return jsonify([dict(d) for d in data])

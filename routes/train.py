@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from database.db_connection import execute_query
 from services.scraper_service import ScraperService
-from app import cache, limiter
+from extensions import cache, limiter
 import random
 import json
 from datetime import datetime

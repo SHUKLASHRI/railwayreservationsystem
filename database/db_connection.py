@@ -1,5 +1,6 @@
 import sqlite3
 import psycopg2
+from psycopg2.extras import RealDictCursor
 import os
 from dotenv import load_dotenv
 
@@ -34,7 +35,11 @@ def get_connection():
 def execute_query(query, params=(), fetchone=False, fetchall=False, commit=False):
     conn = get_connection()
     try:
-        cur = conn.cursor()
+        # Use DictCursor for PostgreSQL if possible
+        if not isinstance(conn, sqlite3.Connection):
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+        else:
+            cur = conn.cursor()
         # Convert %s to ? for SQLite compatibility if needed
         if isinstance(conn, sqlite3.Connection):
             query = query.replace('%s', '?')

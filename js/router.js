@@ -1,3 +1,6 @@
+import { state } from './state.js';
+import { renderHome } from './views/home.js';
+import { renderPNR } from './views/pnr.js';
 import { renderTracking } from './views/tracking.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderAdminLayout } from './views/admin.js';

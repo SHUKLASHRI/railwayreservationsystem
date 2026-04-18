@@ -90,6 +90,9 @@ async function loadAdminTab(tab) {
             const payments = await adminApi.getPayments();
             const refunds = await adminApi.getRefunds();
             renderFinancialsTab(payments, refunds);
+        } else if (tab === 'passengers') {
+            const passengers = await adminApi.getPassengers();
+            renderPassengersTab(passengers);
         } else if (tab === 'logs') {
             const logs = await adminApi.getLogs();
             const live = await adminApi.getLiveStatus();
@@ -354,6 +357,39 @@ function renderLogsTab(logs, live) {
                     </div>
                 </div>
             </div>
+        </div>
+    `;
+}
+
+function renderPassengersTab(passengers) {
+    const container = document.getElementById('adminContent');
+    container.innerHTML = `
+        <h2 style="color: var(--primary); margin-bottom: 30px;">Passenger Manifest</h2>
+        <div class="soft-card" style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead style="background: #f1f5f9; border-bottom: 1px solid var(--border-light);">
+                    <tr>
+                        <th style="padding: 15px 20px;">Name</th>
+                        <th style="padding: 15px 20px;">Age/Gender</th>
+                        <th style="padding: 15px 20px;">PNR</th>
+                        <th style="padding: 15px 20px;">Class</th>
+                        <th style="padding: 15px 20px;">Status</th>
+                        <th style="padding: 15px 20px;">Seat</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${passengers.map(p => `
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 15px 20px; font-weight: 600;">${p.first_name} ${p.last_name}</td>
+                            <td style="padding: 15px 20px;">${p.age} / ${p.gender}</td>
+                            <td style="padding: 15px 20px; font-weight: 700;">${p.pnr}</td>
+                            <td style="padding: 15px 20px;">${p.class_code}</td>
+                            <td style="padding: 15px 20px;"><span class="availability-pill ${p.status === 'CONFIRMED' ? 'available' : ''}">${p.status}</span></td>
+                            <td style="padding: 15px 20px; font-weight: 700; color: var(--primary);">${p.coach_number || '-'}-${p.seat_number || '-'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
         </div>
     `;
 }

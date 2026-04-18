@@ -62,3 +62,8 @@ export function updateAuthModal() {
         linkPara.innerHTML = `${t('dont_have_account')} <a href="#" onclick="toggleAuthMode(event)" style="color: var(--accent); text-decoration: none; font-weight: 600;">${t('register_link')}</a>`;
     }
 }
+
+// Global exposure
+window.showAuthModal = showAuthModal;
+window.hideAuthModal = hideAuthModal;
+window.updateAuthModal = updateAuthModal;
