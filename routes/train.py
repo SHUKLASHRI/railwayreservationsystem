@@ -10,25 +10,24 @@ import os
 train_bp = Blueprint('train', __name__)
 
 @train_bp.route('/stations/search', methods=['GET'])
-@cache.cached(timeout=3600, query_string=True) # Cache station searches for 1 hour
 @limiter.limit("20 per minute")
 def search_stations():
     query = request.args.get('q', '').strip()
     if not query:
         return jsonify([])
     
-    # Priority 1: Web Scraper
-    scraped_stations = ScraperService.scrape_station_search(query)
-    if scraped_stations:
-        return jsonify(scraped_stations)
-
-    # Fallback: Local Database
+    # Priority 1: Local Database (always prefer real data over scraper mock)
     results = execute_query(
-        "SELECT station_id, station_code, station_name, city FROM stations WHERE station_code LIKE %s OR station_name LIKE %s LIMIT 10",
-        (f"{query}%", f"{query}%"),
+        "SELECT station_id, station_code, station_name, city FROM stations WHERE station_code ILIKE %s OR station_name ILIKE %s ORDER BY station_name LIMIT 10",
+        (f"{query}%", f"%{query}%"),
         fetchall=True
     )
-    return jsonify([dict(r) for r in results])
+    if results:
+        return jsonify([dict(r) for r in results])
+
+    # Fallback: Web Scraper (returns mock/live data when DB is empty)
+    scraped_stations = ScraperService.scrape_station_search(query)
+    return jsonify(scraped_stations)
 
 @train_bp.route('/search', methods=['GET'])
 @limiter.limit("5 per minute") # Stricter limit for heavy search
