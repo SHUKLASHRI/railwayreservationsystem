@@ -10,7 +10,7 @@ def seed():
         # Clear existing data (SQLite compatible)
         print("Cleaning old data...")
         tables = ["passengers", "payments", "bookings", "train_instances", "train_schedules", "train_seat_configurations", "train_classes", "trains", "stations"]
-        for table in reversed(tables):
+        for table in tables:
             cur.execute(f"DELETE FROM {table};")
         
         if not is_sqlite:

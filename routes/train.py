@@ -39,16 +39,23 @@ def search_trains():
     source_id = request.args.get('source_id')
     dest_id = request.args.get('dest_id')
     
-    if source_id and not source_code:
-        s = execute_query("SELECT station_code FROM stations WHERE station_id = %s", (source_id,), fetchone=True)
-        if s: source_code = s['station_code']
+    # Handle cases where source_id might be a code (common in JS frontend)
+    if source_id:
+        if str(source_id).isdigit():
+            s = execute_query("SELECT station_code FROM stations WHERE station_id = %s", (source_id,), fetchone=True)
+            if s: source_code = s['station_code']
+        else:
+            source_code = source_id # It's a code already
     
-    if dest_id and not dest_code:
-        d = execute_query("SELECT station_code FROM stations WHERE station_id = %s", (dest_id,), fetchone=True)
-        if d: dest_code = d['station_code']
+    if dest_id:
+        if str(dest_id).isdigit():
+            d = execute_query("SELECT station_code FROM stations WHERE station_id = %s", (dest_id,), fetchone=True)
+            if d: dest_code = d['station_code']
+        else:
+            dest_code = dest_id # It's a code already
 
     if not source_code or not dest_code or not date:
-        return jsonify({"status": "error", "message": "Missing search parameters"}), 400
+        return jsonify({"status": "error", "message": f"Missing parameters: source={source_code}, dest={dest_code}, date={date}"}), 400
 
     # In a full app, we'd scrape get_trains_between here
     # api_trains = ScraperService.scrape_trains_between(source_code, dest_code, date)
