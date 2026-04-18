@@ -29,13 +29,13 @@
       </a>
 
       <nav class="nav-links">
-        <a href="/" class="nav-link" onclick="route(event)">Home</a>
-        <a href="/pnr" class="nav-link" onclick="route(event)">PNR Status</a>
-        <a href="/tracking" class="nav-link" onclick="route(event)">Live Tracking</a>
+        <a href="/" class="nav-link" onclick="route(event)" id="navHome">Home</a>
+        <a href="/pnr" class="nav-link" onclick="route(event)" id="navPNR">PNR Status</a>
+        <a href="/tracking" class="nav-link" onclick="route(event)" id="navTracking">Live Tracking</a>
       </nav>
 
       <div class="nav-actions" id="navActions">
-        <!-- Dynamic Login/Profile Button -->
+        <div class="lang-selector"></div>
         <button class="btn btn-primary" onclick="showAuthModal()">Login</button>
       </div>
     </div>
@@ -48,28 +48,28 @@
 
   <!-- ── MODALS ── -->
   <div class="modal" id="authModal">
-    <div class="modal-content" style="max-width: 400px; padding: 40px;">
-       <h2 id="modalTitle">Welcome Back</h2>
-       <p style="color: var(--text-muted); margin-bottom: 24px;">Login to access bookings and profiles.</p>
+    <div class="modal-content soft-card" style="max-width: 400px; padding: 40px; border-radius: 20px; border: none;">
+       <h2 id="modalTitle" style="color: var(--primary); margin-bottom: 8px;">Welcome Back</h2>
+       <p id="modalDesc" style="color: var(--text-muted); margin-bottom: 24px;">Login to access bookings and profiles.</p>
        <form id="authForm" onsubmit="handleAuth(event)">
          <div class="field-group" style="margin-bottom: 20px;">
-           <label>Username</label>
+           <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Username</label>
            <div class="input-wrapper">
-             <input type="text" id="authUsername" placeholder="e.g. sagar_rail" required/>
+             <input type="text" id="authUsername" class="rounded-input" placeholder="e.g. sagar_rail" required/>
            </div>
          </div>
          <div class="field-group" style="margin-bottom: 24px;">
-           <label>Password</label>
+           <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Password</label>
            <div class="input-wrapper">
-             <input type="password" id="authPassword" placeholder="••••••••" required/>
+             <input type="password" id="authPassword" class="rounded-input" placeholder="••••••••" required/>
            </div>
          </div>
-         <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Continue</button>
-         <p style="text-align: center; margin-top: 20px; font-size: 0.875rem;">
-           Don't have an account? <a href="#" onclick="toggleAuthMode(event)">Register</a>
+         <button type="submit" class="pill-btn pill-btn-primary" style="width: 100%; padding: 14px;">Continue</button>
+         <p style="text-align: center; margin-top: 20px; font-size: 0.875rem; color: var(--text-muted);">
+           Don't have an account? <a href="#" onclick="toggleAuthMode(event)" style="color: var(--accent); text-decoration: none; font-weight: 600;">Register</a>
          </p>
        </form>
-       <button class="btn" style="position: absolute; top: 20px; right: 20px; padding: 10px;" onclick="hideAuthModal()">✕</button>
+       <button class="btn" style="position: absolute; top: 16px; right: 16px; padding: 8px 12px; background: var(--border-light); color: var(--text-main); border-radius: 8px;" onclick="hideAuthModal()">✕</button>
     </div>
   </div>
 
