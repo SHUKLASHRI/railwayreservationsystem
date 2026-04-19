@@ -188,16 +188,12 @@ def seed():
 
     try:
         # ── Clear everything ──
-        print("Clearing old data...")
-        cur.execute("DELETE FROM passengers;")
-        cur.execute("DELETE FROM payments;")
-        cur.execute("DELETE FROM bookings;")
-        cur.execute("DELETE FROM train_instances;")
-        cur.execute("DELETE FROM train_seat_configurations;")
-        cur.execute("DELETE FROM train_schedules;")
-        cur.execute("DELETE FROM train_classes;")
-        cur.execute("DELETE FROM trains;")
-        cur.execute("DELETE FROM stations;")
+        print("Truncating all tables for a fresh start...")
+        cur.execute("""
+            TRUNCATE audit_logs, refunds, passengers, payments, bookings, 
+                     train_instances, train_seat_configurations, train_schedules, 
+                     train_classes, trains, stations CASCADE;
+        """)
 
         # ── 1. Stations ──
         print("Inserting stations...")
@@ -254,12 +250,12 @@ def seed():
             configs
         )
 
-        # ── 5. Train Instances (60 days) ──
+        # ── 5. Train Instances (90 days) ──
         import datetime
         today = datetime.date.today()
         instances = []
         tids = [r[0] for r in all_trains]
-        for i in range(60):
+        for i in range(90):
             d = today + datetime.timedelta(days=i)
             for tid in tids:
                 instances.append((tid, d, 'ON_TIME'))
@@ -267,27 +263,39 @@ def seed():
             "INSERT INTO train_instances (train_id, journey_date, status) VALUES (%s,%s,%s)",
             instances
         )
-        print(f"  Inserted {len(instances)} train instances (60 days).")
+        print(f"  Inserted {len(instances)} train instances (90 days).")
 
-        # ── 6. Admin user ──
+        # ── 6. Train Schedules (Source & Destination minimum) ──
+        print("Inserting train schedules...")
+        schedules = []
+        cur.execute("SELECT train_id, source_station_id, destination_station_id FROM trains")
+        for tid, src_id, dst_id in cur.fetchall():
+            schedules.append((tid, src_id, 1, '10:00:00', '10:15:00', 1, 0))
+            schedules.append((tid, dst_id, 2, '22:00:00', '22:15:00', 1, 1400))
+        cur.executemany(
+            "INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            schedules
+        )
+
+        # ── 7. Admin user ──
         import bcrypt
         admin_pass = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
         cur.execute("SELECT user_id FROM users WHERE username='admin'")
         if cur.fetchone():
-            cur.execute("UPDATE users SET role='admin', password_hash=%s WHERE username='admin'", (admin_pass,))
-            print("Admin user updated.")
+            cur.execute("UPDATE users SET role='admin', password_hash=%s, account_status='ACTIVE' WHERE username='admin'", (admin_pass,))
+            print("Admin user reset to 'admin123'.")
         else:
             cur.execute(
-                "INSERT INTO users (username, password_hash, email, role) VALUES ('admin',%s,'admin@aerorail.com','admin')",
+                "INSERT INTO users (username, password_hash, email, role, account_status) VALUES ('admin',%s,'admin@aerorail.com','admin','ACTIVE')",
                 (admin_pass,)
             )
-            print("Admin user created.")
+            print("Admin user created with 'admin123'.")
 
         conn.commit()
-        print("✅ Seeding completed successfully!")
+        print("SUCCESS: Seeding completed successfully!")
     except Exception as e:
         conn.rollback()
-        print(f"❌ Error: {e}")
+        print(f"ERROR: {e}")
         raise
     finally:
         cur.close()

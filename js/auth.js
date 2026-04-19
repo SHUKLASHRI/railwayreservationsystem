@@ -33,6 +33,13 @@ export async function handleGoogleAuth(response) {
 
 export async function handleAuth(e) {
     if (e) e.preventDefault();
+    const btn = document.getElementById('authSubmitBtn');
+    const originalText = btn ? btn.innerText : 'Continue';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Please wait...';
+    }
+
     const user = document.getElementById('authUsername')?.value;
     const pass = document.getElementById('authPassword')?.value;
     const endpoint = state.isRegistering ? '/api/auth/register' : '/api/auth/login';
@@ -66,10 +73,15 @@ export async function handleAuth(e) {
                 window.dispatchEvent(new Event('popstate'));
             }
         } else {
-            showToast(data.message || 'An error occurred', "error");
+            showToast(data.message || 'Invalid username or password', "error");
         }
     } catch (err) {
-        showToast('Connection error. Please try again.', "error");
+        showToast('Connection error. Is the server running?', "error");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
     }
 }
 
