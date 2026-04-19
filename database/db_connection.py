@@ -7,37 +7,34 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-# Default to false so it tries PostgreSQL first in production/vercel
 USE_SQLITE = os.getenv("USE_SQLITE", "false").lower() == "true"
 SQLITE_DB = "database/railway.db"
 
 def get_connection():
-    """
-    Returns a connection to the database.
-    Attempts PostgreSQL first if USE_SQLITE is false.
-    """
-    # Detect Vercel environment
+    # Detect Vercel
     is_vercel = os.getenv('VERCEL') == '1' or os.getenv('VERCEL_ENV') is not None
     
     if not USE_SQLITE and DATABASE_URL:
         try:
             url = DATABASE_URL
-            # Ensure SSL for Supabase/Production
+            # Robust SSL append
             if 'sslmode=' not in url:
-                url += ('&' if '?' in url else '?') + 'sslmode=require'
-                
-            conn = psycopg2.connect(url, connect_timeout=10)
+                sep = '&' if '?' in url else '?'
+                url += f"{sep}sslmode=require"
+            
+            # Increased timeout for pooler issues
+            conn = psycopg2.connect(url, connect_timeout=15)
+            # Ensure it works like a dict by default if we want to be safe, 
+            # but we use cursor_factory in execute_query
             return conn
         except Exception as e:
-            print(f"PostgreSQL connection failed: {str(e)}")
+            # On Vercel, if DB fails, we must fail.
             if is_vercel:
-                # On Vercel, we MUST have PostgreSQL. Do not fallback to read-only SQLite.
-                raise RuntimeError("Production database connection failed and SQLite is not supported on Vercel.")
+                print(f"CRITICAL: Production DB connection failed: {str(e)}")
+                raise e
+            print(f"PostgreSQL failed locally, falling back to SQLite: {str(e)}")
     
-    if is_vercel:
-        raise RuntimeError("DATABASE_URL not found in Vercel environment.")
-
-    # Local SQLite Fallback (only for local development)
+    # Local SQLite Fallback
     os.makedirs(os.path.dirname(SQLITE_DB), exist_ok=True)
     conn = sqlite3.connect(SQLITE_DB)
     conn.execute("PRAGMA foreign_keys = ON;")
@@ -45,15 +42,14 @@ def get_connection():
     return conn
 
 def execute_query(query, params=(), fetchone=False, fetchall=False, commit=False):
-    conn = get_connection()
+    conn = None
     try:
-        # Use DictCursor for PostgreSQL if possible
+        conn = get_connection()
+        # Use DictCursor for PostgreSQL
         if not isinstance(conn, sqlite3.Connection):
             cur = conn.cursor(cursor_factory=RealDictCursor)
         else:
             cur = conn.cursor()
-        # Convert %s to ? for SQLite compatibility if needed
-        if isinstance(conn, sqlite3.Connection):
             query = query.replace('%s', '?')
         
         cur.execute(query, params)
@@ -63,13 +59,17 @@ def execute_query(query, params=(), fetchone=False, fetchall=False, commit=False
             result = cur.fetchone()
         elif fetchall:
             result = cur.fetchall()
-        
+            
         if commit:
             conn.commit()
             
         return result
     except Exception as e:
-        print(f"Database error: {e}")
+        print(f"Database Error: {query[:50]}... -> {str(e)}")
+        # Raise for transparency on Vercel
+        if os.getenv('VERCEL') == '1':
+            raise e
         return None
     finally:
-        conn.close()
+        if conn:
+            conn.close()
