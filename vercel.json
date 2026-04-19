@@ -1,34 +1,25 @@
 {
   "version": 2,
-  "builds": [
+  "rewrites": [
     {
-      "src": "app.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/js/(.*)",
-      "dest": "/js/$1"
+      "source": "/js/(.*)",
+      "destination": "/js/$1"
     },
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
+      "source": "/static/(.*)",
+      "destination": "/static/$1"
     },
     {
-      "src": "/style.css",
-      "dest": "/style.css"
+      "source": "/style.css",
+      "destination": "/style.css"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "app.py"
+      "source": "/api/(.*)",
+      "destination": "app.py"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "app.py"
+      "source": "/(.*)",
+      "destination": "app.py"
     }
   ],
   "env": {
