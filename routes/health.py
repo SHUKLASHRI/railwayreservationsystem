@@ -6,31 +6,22 @@ health_bp = Blueprint('health', __name__)
 
 @health_bp.route('/health', methods=['GET'])
 def health_check():
-    db_url = os.getenv('DATABASE_URL', '')
+    # Detect which env vars are present
+    has_individual = all([
+        os.getenv('DB_HOST'),
+        os.getenv('DB_USER'),
+        os.getenv('DB_PASS')
+    ])
+    has_url = os.getenv('DATABASE_URL') is not None
     
-    # Redact sensitive info but keep enough to debug structure
-    # e.g. postgresql://p1...:****@h1...:p1/d1
-    redacted_url = "None"
-    if db_url:
-        try:
-            # Simple redact
-            parts = db_url.split('@')
-            user_part = parts[0].split('://')[-1]
-            host_part = parts[1] if len(parts) > 1 else "MISSING_HOST"
-            
-            username = user_part.split(':')[0]
-            masked_user = f"{username[:6]}..." if len(username) > 6 else username
-            redacted_url = f"{masked_user}@{host_part}"
-        except:
-            redacted_url = "MALFORMED_URL"
-
     status = {
         "status": "healthy",
         "database": "unknown",
         "diagnostics": {
             "vercel": os.getenv('VERCEL') == '1',
-            "has_db_url": db_url != '',
-            "url_structure": redacted_url
+            "connection_method": "individual_vars" if has_individual else ("url" if has_url else "none"),
+            "has_individual_metadata": has_individual,
+            "has_url_metadata": has_url
         }
     }
     

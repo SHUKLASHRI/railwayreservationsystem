@@ -6,7 +6,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# We now support both a single URL and individual components for better stability
 DATABASE_URL = os.getenv("DATABASE_URL")
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASS = os.getenv("DB_PASS")
+DB_NAME = os.getenv("DB_NAME")
+DB_PORT = os.getenv("DB_PORT", "5432")
+
 USE_SQLITE = os.getenv("USE_SQLITE", "false").lower() == "true"
 SQLITE_DB = "database/railway.db"
 
@@ -14,26 +21,48 @@ def get_connection():
     # Detect Vercel
     is_vercel = os.getenv('VERCEL') == '1' or os.getenv('VERCEL_ENV') is not None
     
+    # Priority 1: Individual Variables (Safer for passwords with special chars)
+    if DB_HOST and DB_USER and DB_PASS:
+        try:
+            # Use individual arguments to avoid URI parsing issues (@ in password, etc)
+            conn = psycopg2.connect(
+                host=DB_HOST,
+                user=DB_USER,
+                password=DB_PASS,
+                dbname=DB_NAME or "postgres",
+                port=DB_PORT,
+                sslmode='require',
+                connect_timeout=15
+            )
+            return conn
+        except Exception as e:
+            msg = f"PostgreSQL Individual Connection failed: {str(e)}"
+            if is_vercel:
+                print(f"ERROR: {msg}")
+                raise e
+            print(msg)
+
+    # Priority 2: Single DATABASE_URL
     if not USE_SQLITE and DATABASE_URL:
-        # Clean URL
         url = DATABASE_URL.strip().strip('"').strip("'")
-        
-        # Ensure SSL for production
         if 'sslmode=' not in url:
             sep = '&' if '?' in url else '?'
             url += f"{sep}sslmode=require"
             
         try:
-            # Standard connection - no fancy transformations to avoid "invalid dsn"
-            conn = psycopg2.connect(url, connect_timeout=10)
+            conn = psycopg2.connect(url, connect_timeout=15)
             return conn
         except Exception as e:
+            msg = f"PostgreSQL URL Connection failed: {str(e)}"
             if is_vercel:
-                print(f"DATABASE CONNECTION ERROR: {str(e)}")
+                print(f"ERROR: {msg}")
                 raise e
-            print(f"Local fallback triggered by: {str(e)}")
+            print(msg)
     
-    # Local fallback
+    # Priority 3: Local SQLite Fallback
+    if is_vercel:
+        raise RuntimeError("No database configuration found on Vercel.")
+
     os.makedirs(os.path.dirname(SQLITE_DB), exist_ok=True)
     conn = sqlite3.connect(SQLITE_DB)
     conn.execute("PRAGMA foreign_keys = ON;")
@@ -53,7 +82,7 @@ def execute_query(query, params=(), fetchone=False, fetchall=False, commit=False
         cur.execute(query, params)
         result = cur.fetchone() if fetchone else (cur.fetchall() if fetchall else None)
         
-        if commit:
+        if commit and conn:
             conn.commit()
         return result
     except Exception as e:
