@@ -63,7 +63,27 @@ export function updateAuthModal() {
     }
 }
 
+export function updateNavbarLanguageSelector() {
+    const selectors = document.querySelectorAll('.lang-selector');
+    selectors.forEach((container) => {
+        container.innerHTML = `
+            <select class="rounded-input" onchange="setAppLanguage(this.value)" style="min-width: 120px; height: 40px; padding: 0 10px;">
+                <option value="en" ${state.language === 'en' ? 'selected' : ''}>English</option>
+                <option value="hi" ${state.language === 'hi' ? 'selected' : ''}>Hindi</option>
+            </select>
+        `;
+    });
+}
+
+export function setAppLanguage(lang) {
+    state.language = lang === 'hi' ? 'hi' : 'en';
+    localStorage.setItem('aeroRailLanguage', state.language);
+    window.dispatchEvent(new Event('popstate'));
+    window.dispatchEvent(new Event('navbar-update'));
+}
+
 // Global exposure
 window.showAuthModal = showAuthModal;
 window.hideAuthModal = hideAuthModal;
 window.updateAuthModal = updateAuthModal;
+window.setAppLanguage = setAppLanguage;

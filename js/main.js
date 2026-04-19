@@ -3,10 +3,10 @@
    Entry point for modular SPA
    ════════════════════════════════════════════ */
 
-import { state, i18n } from './state.js';
+import { state } from './state.js';
 import { handleRouting } from './router.js';
 import { checkAuth } from './auth.js';
-import { updateAuthModal, updateNavbarLanguageSelector } from './utils.js';
+import { updateNavbarLanguageSelector } from './utils.js';
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
@@ -48,9 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // 3. Navbar Sync
-    if (typeof updateNavbarLanguageSelector === 'function') {
-        updateNavbarLanguageSelector();
-    }
+    updateNavbarLanguageSelector();
 
     // 4. Global Event Listeners
     window.onpopstate = () => {
@@ -62,4 +60,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const navbar = document.getElementById('navbar');
         if (navbar) navbar.classList.toggle('scrolled', window.scrollY > 20);
     });
+
+    // Keep both legacy and current event names for compatibility.
+    window.addEventListener('navbar-update', updateNavbarLanguageSelector);
+    window.addEventListener('navbar-updated', updateNavbarLanguageSelector);
 });

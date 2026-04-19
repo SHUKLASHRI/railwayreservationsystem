@@ -1,5 +1,5 @@
 import { state, t } from './state.js';
-import { showToast, hideAuthModal, updateAuthModal } from './utils.js';
+import { showToast, hideAuthModal, updateAuthModal, updateNavbarLanguageSelector } from './utils.js';
 
 export async function handleGoogleAuth(response) {
     try {
@@ -97,6 +97,7 @@ export async function checkAuth() {
         
         navActions.innerHTML = `
             <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="lang-selector"></div>
                 <span style="font-weight: 600; font-size: 0.9rem;">${t('hello')}, ${data.username}</span>
                 <a href="${state.role === 'admin' ? '/admin' : '/dashboard'}" class="btn btn-primary" onclick="route(event)">${state.role === 'admin' ? 'Admin Dashboard' : t('my_account')}</a>
                 <button class="btn" style="background: #f1f5f9; color: var(--text);" onclick="logout()">${t('logout')}</button>
@@ -109,7 +110,8 @@ export async function checkAuth() {
             <button class="btn btn-primary" onclick="showAuthModal()">${t('login')}</button>
         `;
     }
-    // Custom event to update language selector in navbar
+    // Update selector immediately after nav HTML changes.
+    updateNavbarLanguageSelector();
     window.dispatchEvent(new Event('navbar-updated'));
 }
 

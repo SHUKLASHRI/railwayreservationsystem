@@ -1,5 +1,5 @@
 import { state, t } from '../state.js';
-import { debounce, showToast } from '../utils.js';
+import { debounce, showToast, updateNavbarLanguageSelector } from '../utils.js';
 import { performSearch, selectClass, startBooking } from '../booking.js';
 
 export function renderHome() {
@@ -173,11 +173,6 @@ export function checkPNRFromHome() {
 
 export function getTrainChart() {
     showToast("Charts/Vacancy feature coming soon!", "info");
-}
-
-function updateNavbarLanguageSelector() {
-    // This will be handled in main.js/ui sync
-    window.dispatchEvent(new Event('navbar-update'));
 }
 
 // Attach to window for HTML onclick handlers
