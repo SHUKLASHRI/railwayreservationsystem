@@ -11,29 +11,27 @@ USE_SQLITE = os.getenv("USE_SQLITE", "false").lower() == "true"
 SQLITE_DB = "database/railway.db"
 
 def get_connection():
+    # Detect Vercel
     is_vercel = os.getenv('VERCEL') == '1' or os.getenv('VERCEL_ENV') is not None
     
     if not USE_SQLITE and DATABASE_URL:
-        url = DATABASE_URL
+        # Clean URL
+        url = DATABASE_URL.strip().strip('"').strip("'")
         
-        # Clean URL: Strip whitespace or quotes
-        url = url.strip().strip('"').strip("'")
-        
-        # Ensure SSL
+        # Ensure SSL for production
         if 'sslmode=' not in url:
             sep = '&' if '?' in url else '?'
             url += f"{sep}sslmode=require"
             
         try:
-            # Standard psycopg2 connection
-            conn = psycopg2.connect(url, connect_timeout=15)
+            # Standard connection - no fancy transformations to avoid "invalid dsn"
+            conn = psycopg2.connect(url, connect_timeout=10)
             return conn
         except Exception as e:
-            # Log exact error on Vercel
             if is_vercel:
-                print(f"FAILED DATABASE CONNECTION: {str(e)}")
-                raise RuntimeError(f"Database unavailable: {str(e)}")
-            print(f"Fallback to local DB due to: {str(e)}")
+                print(f"DATABASE CONNECTION ERROR: {str(e)}")
+                raise e
+            print(f"Local fallback triggered by: {str(e)}")
     
     # Local fallback
     os.makedirs(os.path.dirname(SQLITE_DB), exist_ok=True)
@@ -53,18 +51,13 @@ def execute_query(query, params=(), fetchone=False, fetchall=False, commit=False
             query = query.replace('%s', '?')
         
         cur.execute(query, params)
-        result = None
-        if fetchone:
-            result = cur.fetchone()
-        elif fetchall:
-            result = cur.fetchall()
-            
+        result = cur.fetchone() if fetchone else (cur.fetchall() if fetchall else None)
+        
         if commit:
             conn.commit()
-            
         return result
     except Exception as e:
-        print(f"Query Execution Error: {str(e)}")
+        print(f"Query Error: {str(e)}")
         if os.getenv('VERCEL') == '1':
             raise e
         return None

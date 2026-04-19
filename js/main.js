@@ -6,27 +6,51 @@
 import { state, i18n } from './state.js';
 import { handleRouting } from './router.js';
 import { checkAuth } from './auth.js';
-import { updateAuthModal } from './utils.js';
+import { updateAuthModal, updateNavbarLanguageSelector } from './utils.js';
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
+    const app = document.getElementById('app');
+    
     try {
         // 1. Initial State Sync
-        await checkAuth(); 
+        // We catch errors in checkAuth to prevent it from blocking the whole app
+        try {
+            await checkAuth(); 
+        } catch (e) {
+            console.warn("Auth check failed, proceeding as guest:", e);
+        }
         
         // 2. Initial Routing
         handleRouting();
     } catch (error) {
-        console.error("Initialization failed:", error);
-        // Fallback: If EVERYTHING fails, at least render something
-        const app = document.getElementById('app');
-        if (app && !app.innerHTML.trim()) {
-            app.innerHTML = '<div style="padding: 100px; text-align: center;"><h1>Maintenance in Progress</h1><p>We are currently stabilizing our connection. Please refresh in a moment.</p></div>';
+        console.error("Critical initialization failure:", error);
+        
+        // Final fallback: If the app hasn't rendered anything, show the maintenance screen
+        if (app && (!app.innerHTML || app.innerHTML.length < 50)) {
+            app.innerHTML = `
+                <div class="container" style="padding: 15vh 20px; text-align: center; color: white; background: #0d1117; min-height: 80vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <div style="font-size: 4rem; margin-bottom: 20px;">🚆</div>
+                    <h1 style="font-size: 2.5rem; margin-bottom: 10px; font-family: Syne, sans-serif;">System Restoration</h1>
+                    <p style="font-size: 1.2rem; max-width: 600px; opacity: 0.8; line-height: 1.6;">
+                        AeroRail is currently undergoing automated database synchronization. 
+                        We'll be back online in just a moment.
+                    </p>
+                    <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 30px; padding: 12px 30px;">
+                        Check Connection
+                    </button>
+                    <div style="margin-top: 40px; font-size: 0.8rem; opacity: 0.5;">
+                        Status: DB_CON_EXHAUSTION
+                    </div>
+                </div>
+            `;
         }
     }
 
-    // 3. Navbar Sync (if needed after initial render)
-    updateNavbarLanguageSelector();
+    // 3. Navbar Sync
+    if (typeof updateNavbarLanguageSelector === 'function') {
+        updateNavbarLanguageSelector();
+    }
 
     // 4. Global Event Listeners
     window.onpopstate = () => {
@@ -38,39 +62,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         const navbar = document.getElementById('navbar');
         if (navbar) navbar.classList.toggle('scrolled', window.scrollY > 20);
     });
-
-    // Listen for custom navbar updates from other modules
-    window.addEventListener('navbar-updated', () => {
-        updateNavbarLanguageSelector();
-    });
 });
-
-/* ── DOM HELPERS ── */
-
-function updateNavbarLanguageSelector() {
-    const navActions = document.getElementById('navActions');
-    if (navActions) {
-        let langSelector = navActions.querySelector('.lang-selector');
-        if (langSelector) {
-            langSelector.innerHTML = `
-                <select onchange="setLanguage(this.value)" class="lang-dropdown">
-                    <option value="en" ${state.language === 'en' ? 'selected' : ''}>English</option>
-                    <option value="hi" ${state.language === 'hi' ? 'selected' : ''}>हिंदी</option>
-                </select>
-            `;
-        }
-    }
-}
-
-function setLanguage(lang) {
-    if (i18n[lang]) {
-        state.language = lang;
-        localStorage.setItem('aeroRailLanguage', lang);
-        handleRouting(); // Re-render current page
-        updateNavbarLanguageSelector();
-    }
-}
-
-// Global exposure for legacy HTML attributes
-window.setLanguage = setLanguage;
-window.updateNavbarLanguageSelector = updateNavbarLanguageSelector;
