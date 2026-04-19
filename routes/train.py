@@ -42,14 +42,14 @@ def search_trains():
     if source_id:
         if str(source_id).isdigit():
             s = execute_query("SELECT station_code FROM stations WHERE station_id = %s", (source_id,), fetchone=True)
-            if s: source_code = s['station_code']
+            if s and isinstance(s, dict): source_code = s.get('station_code')
         else:
             source_code = source_id # It's a code already
     
     if dest_id:
         if str(dest_id).isdigit():
             d = execute_query("SELECT station_code FROM stations WHERE station_id = %s", (dest_id,), fetchone=True)
-            if d: dest_code = d['station_code']
+            if d and isinstance(d, dict): dest_code = d.get('station_code')
         else:
             dest_code = dest_id # It's a code already
 

@@ -14,30 +14,33 @@ SQLITE_DB = "database/railway.db"
 def get_connection():
     """
     Returns a connection to the database.
-    Attempts PostgreSQL first if USE_SQLITE is false, otherwise falls back to SQLite.
+    Attempts PostgreSQL first if USE_SQLITE is false.
     """
+    # Detect Vercel environment
+    is_vercel = os.getenv('VERCEL') == '1' or os.getenv('VERCEL_ENV') is not None
+    
     if not USE_SQLITE and DATABASE_URL:
         try:
-            # For serverless environments like Vercel, connections might need sslmode
-            # Only append if not already present
             url = DATABASE_URL
-            if 'sslmode=' not in url and '?' in url:
-                url += '&sslmode=require'
-            elif 'sslmode=' not in url:
-                url += '?sslmode=require'
+            # Ensure SSL for Supabase/Production
+            if 'sslmode=' not in url:
+                url += ('&' if '?' in url else '?') + 'sslmode=require'
                 
-            conn = psycopg2.connect(url, connect_timeout=5)
+            conn = psycopg2.connect(url, connect_timeout=10)
             return conn
         except Exception as e:
-            # Critical: Log the error on the server side (Vercel logs)
             print(f"PostgreSQL connection failed: {str(e)}")
+            if is_vercel:
+                # On Vercel, we MUST have PostgreSQL. Do not fallback to read-only SQLite.
+                raise RuntimeError("Production database connection failed and SQLite is not supported on Vercel.")
     
-    # Ensure database directory exists
+    if is_vercel:
+        raise RuntimeError("DATABASE_URL not found in Vercel environment.")
+
+    # Local SQLite Fallback (only for local development)
     os.makedirs(os.path.dirname(SQLITE_DB), exist_ok=True)
     conn = sqlite3.connect(SQLITE_DB)
-    # Enable foreign keys for SQLite
     conn.execute("PRAGMA foreign_keys = ON;")
-    # Return rows as dictionaries
     conn.row_factory = sqlite3.Row
     return conn
 
