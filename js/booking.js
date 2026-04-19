@@ -14,8 +14,14 @@ export async function performSearch() {
     const resDiv = document.getElementById('searchResults');
     if (resDiv) resDiv.innerHTML = '<div class="skeleton" style="height: 300px; border-radius: 16px;"></div>';
 
+    const sourceId = fromId;
+    const destId = toId;
+    const travelDate = date || new Date().toISOString().split('T')[0];
+
+    console.log(`Searching for: ${sourceId} to ${destId} on ${travelDate}`);
+
     try {
-        const resp = await fetch(`/api/train/search?source_id=${fromId}&dest_id=${toId}&date=${date}`);
+        const resp = await fetch(`/api/train/search?source_id=${sourceId}&dest_id=${destId}&date=${travelDate}`);
         const data = await resp.json();
 
         if (data.status === 'success') {
