@@ -54,7 +54,7 @@ def search_trains():
             dest_code = dest_id # It's a code already
 
     if not source_code or not dest_code or not date:
-        return jsonify({"status": "error", "message": f"Missing parameters: source={source_code}, dest={dest_code}, date={date}"}), 400
+        return jsonify({"status": "error", "message": "Invalid station selection or date"}), 400
 
     # ── FALLBACK: LOCAL DATABASE SEARCH ──
     # If no live trains found by scraper (or scraper disabled), we check our seeded database

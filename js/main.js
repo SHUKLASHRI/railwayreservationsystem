@@ -10,11 +10,20 @@ import { updateAuthModal } from './utils.js';
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Initial State Sync
-    await checkAuth(); 
-    
-    // 2. Initial Routing
-    handleRouting();
+    try {
+        // 1. Initial State Sync
+        await checkAuth(); 
+        
+        // 2. Initial Routing
+        handleRouting();
+    } catch (error) {
+        console.error("Initialization failed:", error);
+        // Fallback: If EVERYTHING fails, at least render something
+        const app = document.getElementById('app');
+        if (app && !app.innerHTML.trim()) {
+            app.innerHTML = '<div style="padding: 100px; text-align: center;"><h1>Maintenance in Progress</h1><p>We are currently stabilizing our connection. Please refresh in a moment.</p></div>';
+        }
+    }
 
     // 3. Navbar Sync (if needed after initial render)
     updateNavbarLanguageSelector();
