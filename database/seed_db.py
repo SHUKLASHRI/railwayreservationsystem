@@ -86,6 +86,19 @@ def seed():
         cur.executemany(f"INSERT INTO trains (train_number, train_name, train_type, source_station_id, destination_station_id) VALUES ({q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark})", valid_trains)
         print(f"Inserted {len(valid_trains)} trains.")
 
+        # 3b. Minimal route (source -> destination) so /api/train/search can match intermediate booking
+        cur.execute("SELECT train_id, source_station_id, destination_station_id FROM trains")
+        for tid, src_id, dst_id in cur.fetchall():
+            cur.execute(
+                f"INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES ({q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark})",
+                (tid, src_id, 1, "10:00:00", "10:15:00", 1, 0),
+            )
+            cur.execute(
+                f"INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES ({q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark})",
+                (tid, dst_id, 2, "22:00:00", "22:15:00", 1, 1400),
+            )
+        print("Inserted minimal train schedules.")
+
         # 4. Seat Configurations
         cur.execute("SELECT train_id, train_type FROM trains")
         t_list = cur.fetchall()

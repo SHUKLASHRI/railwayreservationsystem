@@ -62,7 +62,7 @@ def book_ticket():
                 # Set dynamic Waitlist Priority Number logic
                 wl_num = booked_count - total_seats + 1
                 execute_query(
-                    "INSERT INTO passengers (booking_id, first_name, last_name, age, gender, class_id, status, waiting_list_number) VALUES (%s, %s, %s, %s, %s, %s, 'WAITING', %s)",
+                    "INSERT INTO passengers (booking_id, first_name, last_name, age, gender, class_id, status, waiting_list_number) VALUES (%s, %s, %s, %s, %s, %s, 'WAITLISTED', %s)",
                     (b_id, p['first_name'], p['last_name'], p['age'], p['gender'], p['class_id'], wl_num),
                     commit=True
                 )

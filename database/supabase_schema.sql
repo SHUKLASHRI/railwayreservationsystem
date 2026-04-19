@@ -35,7 +35,7 @@ CREATE TABLE trains (
     train_id SERIAL PRIMARY KEY,
     train_number VARCHAR(10) NOT NULL UNIQUE,
     train_name VARCHAR(100) NOT NULL,
-    train_type VARCHAR(20) NOT NULL DEFAULT 'Express' CHECK (train_type IN ('Superfast', 'Express', 'Passenger', 'Vande Bharat', 'Shatabdi', 'Rajdhani')),
+    train_type VARCHAR(20) NOT NULL DEFAULT 'Express' CHECK (train_type IN ('Superfast', 'Express', 'Passenger', 'Vande Bharat', 'Shatabdi', 'Rajdhani', 'Mail', 'Duronto', 'Garib Rath')),
     source_station_id INT NOT NULL,
     destination_station_id INT NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
@@ -51,6 +51,8 @@ CREATE TRIGGER update_trains_updated_at BEFORE UPDATE ON trains FOR EACH ROW EXE
 -- ==============================================================================
 -- 3. TRAIN SCHEDULE (ROUTE/STOPS)
 -- ==============================================================================
+-- Stops are unique by (train_id, stop_sequence). Same station may appear twice on rare routes;
+-- do not constrain (train_id, station_id).
 CREATE TABLE train_schedules (
     schedule_id SERIAL PRIMARY KEY,
     train_id INT NOT NULL,
@@ -62,7 +64,6 @@ CREATE TABLE train_schedules (
     distance_from_source DECIMAL(8,2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (train_id, stop_sequence),
-    UNIQUE (train_id, station_id),
     FOREIGN KEY (train_id) REFERENCES trains(train_id) ON DELETE CASCADE,
     FOREIGN KEY (station_id) REFERENCES stations(station_id) ON DELETE RESTRICT
 );

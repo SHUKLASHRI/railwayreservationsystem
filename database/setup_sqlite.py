@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS train_schedules (
     distance_from_source REAL DEFAULT 0.00,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (train_id, stop_sequence),
-    UNIQUE (train_id, station_id),
     FOREIGN KEY (train_id) REFERENCES trains(train_id),
     FOREIGN KEY (station_id) REFERENCES stations(station_id)
 );

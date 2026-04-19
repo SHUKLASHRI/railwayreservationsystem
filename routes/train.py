@@ -1,5 +1,6 @@
+import sqlite3
 from flask import Blueprint, request, jsonify
-from database.db_connection import execute_query
+from database.db_connection import execute_query, get_connection
 from services.scraper_service import ScraperService
 from extensions import cache, limiter
 import random
@@ -17,13 +18,35 @@ def search_stations():
         return jsonify([])
     
     # Priority 1: Local Database (always prefer real data over scraper mock)
-    results = execute_query(
-        "SELECT station_id, station_code, station_name, city FROM stations WHERE station_code ILIKE %s OR station_name ILIKE %s ORDER BY station_name LIMIT 10",
-        (f"{query}%", f"%{query}%"),
-        fetchall=True
-    )
+    conn = get_connection()
+    try:
+        if isinstance(conn, sqlite3.Connection):
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT station_id, station_code, station_name, city FROM stations
+                   WHERE station_code LIKE ? COLLATE NOCASE OR station_name LIKE ? COLLATE NOCASE
+                   ORDER BY station_name LIMIT 10""",
+                (f"{query}%", f"%{query}%"),
+            )
+            rows = cur.fetchall()
+            cols = [d[0] for d in cur.description]
+            results = [dict(zip(cols, row)) for row in rows]
+        else:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT station_id, station_code, station_name, city FROM stations
+                   WHERE station_code ILIKE %s OR station_name ILIKE %s
+                   ORDER BY station_name LIMIT 10""",
+                (f"{query}%", f"%{query}%"),
+            )
+            rows = cur.fetchall()
+            cols = [d[0] for d in cur.description]
+            results = [dict(zip(cols, row)) for row in rows]
+    finally:
+        conn.close()
+
     if results:
-        return jsonify([dict(r) for r in results])
+        return jsonify(results)
 
     # Fallback: Web Scraper (returns mock/live data when DB is empty)
     scraped_stations = ScraperService.scrape_station_search(query)
@@ -56,17 +79,19 @@ def search_trains():
     if not source_code or not dest_code or not date:
         return jsonify({"status": "error", "message": "Invalid station selection or date"}), 400
 
-    # ── FALLBACK: LOCAL DATABASE SEARCH ──
-    # If no live trains found by scraper (or scraper disabled), we check our seeded database
+    # Local DB: any train whose schedule lists source before destination (CSV / full route).
     local_trains = execute_query("""
-        SELECT i.instance_id, t.train_id, t.train_number, t.train_name, t.train_type, 
-               s1.station_name as source_name, s2.station_name as dest_name, 
+        SELECT DISTINCT i.instance_id, t.train_id, t.train_number, t.train_name, t.train_type,
+               s_src.station_name AS source_name, s_dst.station_name AS dest_name,
                i.journey_date, i.status
         FROM train_instances i
         JOIN trains t ON i.train_id = t.train_id
-        JOIN stations s1 ON t.source_station_id = s1.station_id
-        JOIN stations s2 ON t.destination_station_id = s2.station_id
-        WHERE s1.station_code = %s AND s2.station_code = %s AND i.journey_date = %s
+        JOIN train_schedules ts_src ON ts_src.train_id = t.train_id
+        JOIN stations s_src ON s_src.station_id = ts_src.station_id AND s_src.station_code = %s
+        JOIN train_schedules ts_dst ON ts_dst.train_id = t.train_id
+            AND ts_dst.stop_sequence > ts_src.stop_sequence
+        JOIN stations s_dst ON s_dst.station_id = ts_dst.station_id AND s_dst.station_code = %s
+        WHERE i.journey_date = %s
     """, (source_code, dest_code, date), fetchall=True)
 
     if local_trains:

@@ -20,7 +20,8 @@ def register():
     try:
         execute_query(
             "INSERT INTO users (username, password_hash, email, role, account_status) VALUES (%s, %s, %s, 'customer', 'ACTIVE')",
-            (username, hashed, email)
+            (username, hashed, email),
+            commit=True,
         )
         return jsonify({"status": "success", "message": "User registered successfully"}), 201
     except Exception as e:

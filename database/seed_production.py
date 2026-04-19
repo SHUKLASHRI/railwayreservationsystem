@@ -255,8 +255,8 @@ def seed():
         print("Upserting train schedules...")
         cur.execute("SELECT train_id, source_station_id, destination_station_id FROM trains")
         for tid, src_id, dst_id in cur.fetchall():
-            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, station_id) DO NOTHING", (tid, src_id, 1, '10:00:00', '10:15:00', 1, 0))
-            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, station_id) DO NOTHING", (tid, dst_id, 2, '22:00:00', '22:15:00', 1, 1400))
+            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, stop_sequence) DO NOTHING", (tid, src_id, 1, '10:00:00', '10:15:00', 1, 0))
+            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, stop_sequence) DO NOTHING", (tid, dst_id, 2, '22:00:00', '22:15:00', 1, 1400))
 
         print("SUCCESS: Seeding completed successfully!")
     except Exception as e:
