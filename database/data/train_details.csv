@@ -1,0 +1,13 @@
+Train No,Train Name,SEQ,Station Code,Station Name,Arrival time,Departure Time,Distance,Source Station,Source Station Name,Destination Station,Destination Station Name
+12001,New Delhi Bhopal Shatabdi Express,1,NDLS,New Delhi,,17:15,0,NDLS,New Delhi,BPL,Bhopal Junction
+12001,New Delhi Bhopal Shatabdi Express,2,MTJ,Mathura Junction,18:38,18:40,141,NDLS,New Delhi,BPL,Bhopal Junction
+12001,New Delhi Bhopal Shatabdi Express,3,AGC,Agra Cantt,19:48,19:50,195,NDLS,New Delhi,BPL,Bhopal Junction
+12001,New Delhi Bhopal Shatabdi Express,4,GWL,Gwalior Junction,21:18,21:20,363,NDLS,New Delhi,BPL,Bhopal Junction
+12001,New Delhi Bhopal Shatabdi Express,5,JHS,Jhansi Junction,22:38,22:43,485,NDLS,New Delhi,BPL,Bhopal Junction
+12001,New Delhi Bhopal Shatabdi Express,6,BPL,Bhopal Junction,00:15,,708,NDLS,New Delhi,BPL,Bhopal Junction
+12002,Bhopal New Delhi Shatabdi Express,1,BPL,Bhopal Junction,14:50,,0,BPL,Bhopal Junction,NDLS,New Delhi
+12002,Bhopal New Delhi Shatabdi Express,2,JHS,Jhansi Junction,16:38,16:43,223,BPL,Bhopal Junction,NDLS,New Delhi
+12002,Bhopal New Delhi Shatabdi Express,3,GWL,Gwalior Junction,18:00,18:02,345,BPL,Bhopal Junction,NDLS,New Delhi
+12002,Bhopal New Delhi Shatabdi Express,4,AGC,Agra Cantt,19:08,19:10,513,BPL,Bhopal Junction,NDLS,New Delhi
+12002,Bhopal New Delhi Shatabdi Express,5,MTJ,Mathura Junction,20:28,20:30,567,BPL,Bhopal Junction,NDLS,New Delhi
+12002,Bhopal New Delhi Shatabdi Express,6,NDLS,New Delhi,22:45,,708,BPL,Bhopal Junction,NDLS,New Delhi
