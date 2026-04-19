@@ -62,6 +62,19 @@ def get_trains():
     """, fetchall=True)
     return jsonify([dict(t) for t in trains])
 
+@admin_bp.route('/bookings', methods=['GET'])
+@admin_required
+def get_bookings():
+    bookings = execute_query("""
+        SELECT b.*, u.username, t.train_name, t.train_number, ti.journey_date
+        FROM bookings b
+        JOIN users u ON b.user_id = u.user_id
+        JOIN train_instances ti ON b.instance_id = ti.instance_id
+        JOIN trains t ON ti.train_id = t.train_id
+        ORDER BY b.booking_time DESC
+    """, fetchall=True)
+    return jsonify([dict(b) for b in bookings])
+
 @admin_bp.route('/trains', methods=['POST'])
 @admin_required
 def create_train():
@@ -74,6 +87,21 @@ def create_train():
         return jsonify({"status": "success", "message": "Train created"}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
+@admin_bp.route('/trains/<int:train_id>', methods=['PUT', 'DELETE'])
+@admin_required
+def manage_train(train_id):
+    if request.method == 'DELETE':
+        execute_query("DELETE FROM trains WHERE train_id = %s", (train_id,), commit=True)
+        return jsonify({"status": "success", "message": "Train deleted"})
+    
+    data = request.get_json()
+    execute_query("""
+        UPDATE trains SET train_number = %s, train_name = %s, train_type = %s, 
+        source_station_id = %s, destination_station_id = %s WHERE train_id = %s
+    """, (data['train_number'], data['train_name'], data['train_type'], 
+          data['source_station_id'], data['destination_station_id'], train_id), commit=True)
+    return jsonify({"status": "success", "message": "Train updated"})
 
 # ── STATION MANAGEMENT ──
 @admin_bp.route('/stations', methods=['GET'])
@@ -94,6 +122,20 @@ def create_station():
         return jsonify({"status": "success", "message": "Station created"}), 201
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+
+@admin_bp.route('/stations/<int:station_id>', methods=['PUT', 'DELETE'])
+@admin_required
+def manage_station(station_id):
+    if request.method == 'DELETE':
+        execute_query("DELETE FROM stations WHERE station_id = %s", (station_id,), commit=True)
+        return jsonify({"status": "success", "message": "Station deleted"})
+    
+    data = request.get_json()
+    execute_query("""
+        UPDATE stations SET station_code = %s, station_name = %s, city = %s, state = %s 
+        WHERE station_id = %s
+    """, (data['station_code'], data['station_name'], data['city'], data['state'], station_id), commit=True)
+    return jsonify({"status": "success", "message": "Station updated"})
 
 # ── FINANCIALS (PAYMENTS & REFUNDS) ──
 @admin_bp.route('/payments', methods=['GET'])
@@ -179,3 +221,55 @@ def get_train_instances():
 def get_train_classes():
     data = execute_query("SELECT * FROM train_classes", fetchall=True)
     return jsonify([dict(d) for d in data])
+
+@admin_bp.route('/seat-configs', methods=['GET'])
+@admin_required
+def get_seat_configs():
+    data = execute_query("""
+        SELECT sc.*, t.train_name, t.train_number, tc.class_name, tc.class_code
+        FROM train_seat_configurations sc
+        JOIN trains t ON sc.train_id = t.train_id
+        JOIN train_classes tc ON sc.class_id = tc.class_id
+        ORDER BY t.train_number
+    """, fetchall=True)
+    return jsonify([dict(d) for d in data])
+
+@admin_bp.route('/seat-configs', methods=['POST'])
+@admin_required
+def save_seat_config():
+    data = request.get_json()
+    try:
+        # Check if exists (bulk save pattern)
+        execute_query("""
+            INSERT INTO train_seat_configurations (train_id, class_id, total_seats, base_fare)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (train_id, class_id) 
+            DO UPDATE SET total_seats = EXCLUDED.total_seats, base_fare = EXCLUDED.base_fare
+        """, (data['train_id'], data['class_id'], data['total_seats'], data['base_fare']), commit=True)
+        return jsonify({"status": "success", "message": "Config saved"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+
+@admin_bp.route('/train-instances', methods=['POST'])
+@admin_required
+def create_train_instance():
+    data = request.get_json()
+    try:
+        execute_query("""
+            INSERT INTO train_instances (train_id, journey_date, status)
+            VALUES (%s, %s, %s)
+        """, (data['train_id'], data['journey_date'], data.get('status', 'ON_TIME')), commit=True)
+        return jsonify({"status": "success", "message": "Instance created"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": "Duplicate date or database error"}), 400
+
+@admin_bp.route('/train-instances/<int:instance_id>', methods=['PUT', 'DELETE'])
+@admin_required
+def manage_train_instance(instance_id):
+    if request.method == 'DELETE':
+        execute_query("DELETE FROM train_instances WHERE instance_id = %s", (instance_id,), commit=True)
+        return jsonify({"status": "success", "message": "Instance deleted"})
+    
+    data = request.get_json()
+    execute_query("UPDATE train_instances SET status = %s WHERE instance_id = %s", (data['status'], instance_id), commit=True)
+    return jsonify({"status": "success", "message": "Instance updated"})

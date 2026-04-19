@@ -4,11 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>AeroRail — Smart Railway Reservations</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="description" content="Book train tickets, check PNR status, and track live train locations with AeroRail — India's smartest railway reservation platform.">
+  <link rel="stylesheet" href="/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <script>function initGoogleAuth(){ window.dispatchEvent(new Event('google-api-loaded')); }</script>
+  <script src="https://accounts.google.com/gsi/client?onload=initGoogleAuth" async defer></script>
 </head>
 <body>
 
@@ -36,6 +38,7 @@
       </nav>
 
       <div class="nav-actions" id="navActions">
+        <!-- Injected by auth.js -->
         <div class="lang-selector"></div>
         <button class="btn btn-primary" onclick="showAuthModal()">Login</button>
       </div>
@@ -44,57 +47,62 @@
 
   <!-- ── MAIN CONTENT AREA (SPA) ── -->
   <main id="app">
-    <!-- Content injected by modular JS (main.js) -->
+    <!-- Content injected by modular JS -->
   </main>
 
-  <!-- ── MODALS ── -->
-  <div class="modal" id="authModal">
-    <div class="modal-content soft-card" style="max-width: 400px; padding: 40px; border-radius: 20px; border: none;">
-       <h2 id="modalTitle" style="color: var(--primary); margin-bottom: 8px;">Welcome Back</h2>
-       <p id="modalDesc" style="color: var(--text-muted); margin-bottom: 24px;">Login to access bookings and profiles.</p>
-       <form id="authForm" onsubmit="handleAuth(event)">
-         <div class="field-group" style="margin-bottom: 20px;">
-           <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Username</label>
-           <div class="input-wrapper">
-             <input type="text" id="authUsername" class="rounded-input" placeholder="e.g. sagar_rail" required/>
-           </div>
-         </div>
-         <div class="field-group" style="margin-bottom: 24px;">
-           <label style="font-weight: 600; font-size: 0.9rem; color: var(--text-main);">Password</label>
-           <div class="input-wrapper">
-             <input type="password" id="authPassword" class="rounded-input" placeholder="••••••••" required/>
-           </div>
-         </div>
-         <button type="submit" class="pill-btn pill-btn-primary" style="width: 100%; padding: 14px;">Continue</button>
-         <p style="text-align: center; margin-top: 20px; font-size: 0.875rem; color: var(--text-muted);">
-           Don't have an account? <a href="#" onclick="toggleAuthMode(event)" style="color: var(--accent); text-decoration: none; font-weight: 600;">Register</a>
-         </p>
-       </form>
-       <div style="display: flex; align-items: center; margin: 24px 0;">
-         <hr style="flex: 1; border: none; border-top: 1px solid var(--border);"><span style="padding: 0 10px; color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">OR</span><hr style="flex: 1; border: none; border-top: 1px solid var(--border);">
-       </div>
-       <div id="googleAuthButton" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
-       <button class="btn" style="position: absolute; top: 16px; right: 16px; padding: 8px 12px; background: var(--border-light); color: var(--text-main); border-radius: 8px;" onclick="hideAuthModal()">✕</button>
+  <!-- ── AUTH MODAL ── -->
+  <div class="modal" id="authModal" onclick="handleModalBackdropClick(event)">
+    <div class="modal-card" id="authModalCard">
+      <button class="modal-close" onclick="hideAuthModal()">✕</button>
+      <div class="modal-header">
+        <div class="modal-icon">🚆</div>
+        <h2 id="modalTitle">Welcome Back</h2>
+        <p id="modalDesc">Sign in to access bookings and your profile.</p>
+      </div>
+      <form id="authForm" onsubmit="handleAuth(event)">
+        <div class="field-group">
+          <label>Username</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input type="text" id="authUsername" class="rounded-input with-icon" placeholder="e.g. sagar_rail" required autocomplete="username"/>
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Password</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="authPassword" class="rounded-input with-icon" placeholder="••••••••" required autocomplete="current-password"/>
+          </div>
+        </div>
+        <button type="submit" class="pill-btn pill-btn-primary" id="authSubmitBtn" style="width:100%; padding:14px; margin-top:8px;">Continue</button>
+        <p class="modal-toggle-text">
+          Don't have an account? <a href="#" onclick="toggleAuthMode(event)" id="authToggleLink">Register</a>
+        </p>
+      </form>
+      <div class="modal-divider"><span>OR</span></div>
+      <div id="googleAuthButton" style="display:flex; justify-content:center;"></div>
     </div>
   </div>
 
+  <!-- ── BOOKING MODAL ── -->
   <div class="modal" id="bookingModal">
-    <div class="modal-content" id="bookingModalContent">
-      <!-- Injected by app.js -->
-    </div>
+    <div class="modal-content" id="bookingModalContent"></div>
   </div>
 
-  <!-- ── TOAST NOTIFICATIONS ── -->
-  <div id="toast" class="glass" style="position: fixed; bottom: 40px; right: 40px; padding: 16px 24px; border-radius: 8px; color: white; display: none; z-index: 3000;"></div>
+  <!-- ── TOAST ── -->
+  <div id="toast"></div>
 
   <!-- ── FOOTER ── -->
-  <footer style="padding: 60px 0; background: #fff; border-top: 1px solid #eee; margin-top: 100px;">
-    <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
-      <span class="logo-text sm">Aero<span>Rail</span></span>
-      <p style="color: var(--text-muted); font-size: 0.875rem;">© 2026 AeroRail. India's smartest train tracking platform.</p>
-      <div style="display: flex; gap: 20px;">
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <a href="/" class="logo" onclick="route(event)">
+        <span class="logo-text" style="font-size:1.1rem;">Aero<span>Rail</span></span>
+      </a>
+      <p>© 2026 AeroRail. India's smartest train platform.</p>
+      <div class="footer-links">
         <a href="#" class="nav-link">Privacy</a>
         <a href="#" class="nav-link">Terms</a>
+        <a href="#" class="nav-link">Contact</a>
       </div>
     </div>
   </footer>

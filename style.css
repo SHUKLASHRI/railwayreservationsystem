@@ -32,7 +32,8 @@
 
 body {
   font-family: 'DM Sans', sans-serif;
-  background-color: white;
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231a237e' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   color: var(--text-main);
   line-height: 1.6;
   min-height: 100vh;
@@ -133,6 +134,12 @@ h1, h2, h3, .logo-text {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(26, 35, 126, 0.1);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 /* ── HERO SECTION ── */
@@ -872,8 +879,10 @@ select:focus {
   .nav-actions {
     width: 100%;
     order: 4;
-    flex-direction: column;
-    gap: 10px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 16px;
   }
 
   .modal-content {
@@ -901,13 +910,45 @@ select:focus {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 20px;
-  color: var(--text-main);
+  padding: 12px 20px;
+  color: var(--text-muted);
   text-decoration: none;
   font-weight: 600;
   border-radius: 12px;
-  transition: all 0.2s ease;
-  margin-bottom: 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 6px;
+}
+
+.admin-nav-item:hover {
+  background: var(--bg);
+  color: var(--primary);
+}
+
+.admin-nav-item.active {
+  background: #F0F4FF;
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(26, 35, 126, 0.05);
+}
+
+.soft-card {
+  background: white;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.soft-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+select.rounded-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 40px;
+}
 }
 
 .admin-nav-item:hover {

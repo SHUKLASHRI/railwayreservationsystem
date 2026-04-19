@@ -18,11 +18,14 @@ def register():
         return jsonify({"status": "error", "message": "Missing fields"}), 400
 
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Use None instead of empty string to avoid UNIQUE constraint violations
+    email_val = email if email else None
 
     try:
         execute_query(
             "INSERT INTO users (username, password_hash, email) VALUES (%s, %s, %s)",
-            (username, hashed, email),
+            (username, hashed, email_val),
             commit=True
         )
         return jsonify({"status": "success", "message": "Registered successfully"}), 201
@@ -65,7 +68,7 @@ def google_login():
             return jsonify({"status": "error", "message": "No email found in token"}), 400
             
         # Check if user exists
-        user = execute_query("SELECT user_id, username FROM users WHERE email = %s", (email,), fetchone=True)
+        user = execute_query("SELECT user_id, username, role FROM users WHERE email = %s", (email,), fetchone=True)
         
         if not user:
             # Create a new user with a random password hash since they use Google

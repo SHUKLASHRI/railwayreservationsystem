@@ -39,6 +39,12 @@ export function renderAdminLayout() {
                     <a href="#" class="admin-nav-item" onclick="switchAdminTab(event, 'stations')">
                         <span class="icon">🚉</span> Station Master
                     </a>
+                    <a href="#" class="admin-nav-item" onclick="switchAdminTab(event, 'bookings')">
+                        <span class="icon">🎟️</span> Bookings
+                    </a>
+                    <a href="#" class="admin-nav-item" onclick="switchAdminTab(event, 'inventory')">
+                        <span class="icon">📦</span> Pricing & Inventory
+                    </a>
                     <a href="#" class="admin-nav-item" onclick="switchAdminTab(event, 'financials')">
                         <span class="icon">💰</span> Financials & Refunds
                     </a>
@@ -86,6 +92,15 @@ async function loadAdminTab(tab) {
         } else if (tab === 'stations') {
             const stations = await adminApi.getStations();
             renderStationsTab(stations);
+        } else if (tab === 'bookings') {
+            const bookings = await adminApi.getBookings();
+            renderBookingsTab(bookings);
+        } else if (tab === 'inventory') {
+            const instances = await adminApi.getTrainInstances();
+            const configs = await adminApi.getSeatConfigs();
+            const trains = await adminApi.getTrains();
+            const classes = await adminApi.getTrainClasses();
+            renderInventoryTab(instances, configs, trains, classes);
         } else if (tab === 'financials') {
             const payments = await adminApi.getPayments();
             const refunds = await adminApi.getRefunds();
@@ -143,7 +158,6 @@ function renderUsersTab(users) {
     container.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
             <h2 style="color: var(--primary);">User Management</h2>
-            <button class="pill-btn pill-btn-primary">+ Add New User</button>
         </div>
         <div class="soft-card" style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -153,7 +167,6 @@ function renderUsersTab(users) {
                         <th style="padding: 15px 20px;">Email</th>
                         <th style="padding: 15px 20px;">Role</th>
                         <th style="padding: 15px 20px;">Status</th>
-                        <th style="padding: 15px 20px;">Created At</th>
                         <th style="padding: 15px 20px;">Actions</th>
                     </tr>
                 </thead>
@@ -162,11 +175,21 @@ function renderUsersTab(users) {
                         <tr style="border-bottom: 1px solid var(--border-light);">
                             <td style="padding: 15px 20px; font-weight: 600;">${u.username}</td>
                             <td style="padding: 15px 20px;">${u.email || '-'}</td>
-                            <td style="padding: 15px 20px;"><span class="availability-pill ${u.role === 'admin' ? 'available' : ''}">${u.role}</span></td>
-                            <td style="padding: 15px 20px;"><span style="color: ${u.account_status === 'ACTIVE' ? 'var(--success)' : 'var(--danger)'}; font-weight: 700;">${u.account_status}</span></td>
-                            <td style="padding: 15px 20px; color: var(--text-muted); font-size: 0.8rem;">${new Date(u.created_at).toLocaleDateString()}</td>
                             <td style="padding: 15px 20px;">
-                                <button class="btn" style="padding: 5px 10px; font-size: 0.75rem;">Edit</button>
+                                <select onchange="updateUserRole(${u.user_id}, this.value)" style="padding: 5px; border-radius: 6px; border: 1px solid var(--border);">
+                                    <option value="customer" ${u.role === 'customer' ? 'selected' : ''}>Customer</option>
+                                    <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                    <option value="agent" ${u.role === 'agent' ? 'selected' : ''}>Agent</option>
+                                </select>
+                            </td>
+                            <td style="padding: 15px 20px;">
+                                <select onchange="updateUserStatus(${u.user_id}, this.value)" style="padding: 5px; border-radius: 6px; border: 1px solid var(--border);">
+                                    <option value="ACTIVE" ${u.account_status === 'ACTIVE' ? 'selected' : ''}>Active</option>
+                                    <option value="SUSPENDED" ${u.account_status === 'SUSPENDED' ? 'selected' : ''}>Suspended</option>
+                                </select>
+                            </td>
+                            <td style="padding: 15px 20px;">
+                                <button class="btn btn-primary" style="padding: 5px 12px; font-size: 0.75rem;" onclick="saveUser(${u.user_id})">Save</button>
                             </td>
                         </tr>
                     `).join('')}
@@ -181,7 +204,7 @@ function renderTrainsTab(trains) {
     container.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
             <h2 style="color: var(--primary);">Train Master</h2>
-            <button class="pill-btn pill-btn-primary">+ Create New Train</button>
+            <button class="pill-btn pill-btn-primary" onclick="showTrainEditor()">+ Create New Train</button>
         </div>
         <div class="soft-card" style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -190,8 +213,7 @@ function renderTrainsTab(trains) {
                         <th style="padding: 15px 20px;">Train No.</th>
                         <th style="padding: 15px 20px;">Name</th>
                         <th style="padding: 15px 20px;">Type</th>
-                        <th style="padding: 15px 20px;">Source</th>
-                        <th style="padding: 15px 20px;">Destination</th>
+                        <th style="padding: 15px 20px;">Route</th>
                         <th style="padding: 15px 20px;">Actions</th>
                     </tr>
                 </thead>
@@ -201,10 +223,10 @@ function renderTrainsTab(trains) {
                             <td style="padding: 15px 20px; font-weight: 700; color: var(--accent);">#${t.train_number}</td>
                             <td style="padding: 15px 20px; font-weight: 600;">${t.train_name}</td>
                             <td style="padding: 15px 20px;"><span class="train-type">${t.train_type}</span></td>
-                            <td style="padding: 15px 20px;">${t.source_name}</td>
-                            <td style="padding: 15px 20px;">${t.dest_name}</td>
-                            <td style="padding: 15px 20px;">
-                                <button class="btn" style="padding: 5px 10px; font-size: 0.75rem;">Schedule</button>
+                            <td style="padding: 15px 20px;">${t.source_name} → ${t.dest_name}</td>
+                            <td style="padding: 15px 20px; display: flex; gap: 8px;">
+                                <button class="btn" style="padding: 5px 10px; font-size: 0.75rem;" onclick='showTrainEditor(${JSON.stringify(t).replace(/'/g, "&apos;")})'>Edit</button>
+                                <button class="btn" style="padding: 5px 10px; font-size: 0.75rem; background: var(--danger); color: white;" onclick="deleteTrain(${t.train_id})">Del</button>
                             </td>
                         </tr>
                     `).join('')}
@@ -219,7 +241,7 @@ function renderStationsTab(stations) {
     container.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
             <h2 style="color: var(--primary);">Station Master</h2>
-            <button class="pill-btn pill-btn-primary">+ Add Station</button>
+            <button class="pill-btn pill-btn-primary" onclick="showStationEditor()">+ Add Station</button>
         </div>
         <div class="soft-card" style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -227,8 +249,7 @@ function renderStationsTab(stations) {
                     <tr>
                         <th style="padding: 15px 20px;">Code</th>
                         <th style="padding: 15px 20px;">Name</th>
-                        <th style="padding: 15px 20px;">City</th>
-                        <th style="padding: 15px 20px;">State</th>
+                        <th style="padding: 15px 20px;">City / State</th>
                         <th style="padding: 15px 20px;">Actions</th>
                     </tr>
                 </thead>
@@ -237,10 +258,10 @@ function renderStationsTab(stations) {
                         <tr style="border-bottom: 1px solid var(--border-light);">
                             <td style="padding: 15px 20px; font-weight: 800; color: var(--primary);">${s.station_code}</td>
                             <td style="padding: 15px 20px; font-weight: 600;">${s.station_name}</td>
-                            <td style="padding: 15px 20px;">${s.city}</td>
-                            <td style="padding: 15px 20px;">${s.state}</td>
-                            <td style="padding: 15px 20px;">
-                                <button class="btn" style="padding: 5px 10px; font-size: 0.75rem;">Edit</button>
+                            <td style="padding: 15px 20px;">${s.city}, ${s.state}</td>
+                            <td style="padding: 15px 20px; display: flex; gap: 8px;">
+                                <button class="btn" style="padding: 5px 10px; font-size: 0.75rem;" onclick='showStationEditor(${JSON.stringify(s).replace(/'/g, "&apos;")})'>Edit</button>
+                                <button class="btn" style="padding: 5px 10px; font-size: 0.75rem; background: var(--danger); color: white;" onclick="deleteStation(${s.station_id})">Del</button>
                             </td>
                         </tr>
                     `).join('')}
@@ -393,6 +414,281 @@ function renderPassengersTab(passengers) {
         </div>
     `;
 }
+
+function renderBookingsTab(bookings) {
+    const container = document.getElementById('adminContent');
+    container.innerHTML = `
+        <h2 style="color: var(--primary); margin-bottom: 30px;">System Bookings</h2>
+        <div class="soft-card" style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead style="background: #f1f5f9; border-bottom: 1px solid var(--border-light);">
+                    <tr>
+                        <th style="padding: 15px 20px;">PNR</th>
+                        <th style="padding: 15px 20px;">User</th>
+                        <th style="padding: 15px 20px;">Train</th>
+                        <th style="padding: 15px 20px;">Journey Date</th>
+                        <th style="padding: 15px 20px;">Status</th>
+                        <th style="padding: 15px 20px;">Total Fare</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${bookings.map(b => `
+                        <tr style="border-bottom: 1px solid var(--border-light);">
+                            <td style="padding: 15px 20px; font-weight: 800; color: var(--primary);">${b.pnr}</td>
+                            <td style="padding: 15px 20px;">${b.username}</td>
+                            <td style="padding: 15px 20px;">#${b.train_number} ${b.train_name}</td>
+                            <td style="padding: 15px 20px;">${new Date(b.journey_date).toLocaleDateString()}</td>
+                            <td style="padding: 15px 20px;"><span class="availability-pill ${b.status === 'CONFIRMED' ? 'available' : ''}">${b.status}</span></td>
+                            <td style="padding: 15px 20px; font-weight: 700;">₹${b.total_fare}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderInventoryTab(instances, configs, trains, classes) {
+    const container = document.getElementById('adminContent');
+    container.innerHTML = `
+        <h2 style="color: var(--primary); margin-bottom: 30px;">Pricing & Inventory</h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="font-size: 1.1rem;">Train Instances</h3>
+                    <button class="pill-btn pill-btn-primary" onclick="showInstanceEditor()">+ Create</button>
+                </div>
+                <div class="soft-card" style="overflow-x: auto; padding: 0;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                        <thead style="background: #f1f5f9; border-bottom: 1px solid var(--border-light);">
+                            <tr>
+                                <th style="padding: 12px 15px;">Train</th>
+                                <th style="padding: 12px 15px;">Date</th>
+                                <th style="padding: 12px 15px;">Status</th>
+                                <th style="padding: 12px 15px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${instances.map(i => `
+                                <tr style="border-bottom: 1px solid var(--border-light);">
+                                    <td style="padding: 12px 15px;">#${i.train_number}</td>
+                                    <td style="padding: 12px 15px;">${new Date(i.journey_date).toLocaleDateString()}</td>
+                                    <td style="padding: 12px 15px;"><span class="availability-pill ${i.status === 'ON_TIME' ? 'available' : ''}">${i.status}</span></td>
+                                    <td style="padding: 12px 15px;">
+                                        <button class="btn" style="padding: 3px 8px; font-size: 0.7rem;" onclick="deleteInstance(${i.instance_id})">Del</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="font-size: 1.1rem;">Seat Configs & Fare</h3>
+                    <button class="pill-btn pill-btn-primary" onclick="showConfigEditor()">+ Manage</button>
+                </div>
+                <div class="soft-card" style="overflow-x: auto; padding: 0;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                        <thead style="background: #f1f5f9; border-bottom: 1px solid var(--border-light);">
+                            <tr>
+                                <th style="padding: 12px 15px;">Train</th>
+                                <th style="padding: 12px 15px;">Class</th>
+                                <th style="padding: 12px 15px;">Seats</th>
+                                <th style="padding: 12px 15px;">Fare</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${configs.map(c => `
+                                <tr style="border-bottom: 1px solid var(--border-light);">
+                                    <td style="padding: 12px 15px;">#${c.train_number}</td>
+                                    <td style="padding: 12px 15px;">${c.class_code}</td>
+                                    <td style="padding: 12px 15px;">${c.total_seats}</td>
+                                    <td style="padding: 12px 15px; font-weight: 700;">₹${c.base_fare}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Global data for editors
+    window._adminTrainList = trains;
+    window._adminClassList = classes;
+}
+
+// ── ADMIN HANDLERS ──
+
+let currentUserData = {};
+window.updateUserRole = (id, role) => currentUserData[id] = {...currentUserData[id], role};
+window.updateUserStatus = (id, status) => currentUserData[id] = {...currentUserData[id], account_status: status};
+window.saveUser = async (id) => {
+    if (!currentUserData[id]) return;
+    await adminApi.updateUser(id, currentUserData[id]);
+    alert("User updated successfully");
+};
+
+window.deleteTrain = async (id) => {
+    if (confirm("Delete this train? This will affect schedules.")) {
+        await adminApi.deleteTrain(id);
+        loadAdminTab('trains');
+    }
+};
+
+window.deleteStation = async (id) => {
+    if (confirm("Delete this station?")) {
+        await adminApi.deleteStation(id);
+        loadAdminTab('stations');
+    }
+};
+
+window.deleteInstance = async (id) => {
+    if (confirm("Remove this instance? Bookings will be orphaned!")) {
+        await adminApi.deleteTrainInstance(id);
+        loadAdminTab('inventory');
+    }
+};
+
+window.showTrainEditor = (t = null) => {
+    const isEdit = !!t;
+    const modalHtml = `
+        <div style="padding: 30px;">
+            <h3>${isEdit ? 'Edit Train' : 'Create Train'}</h3>
+            <form id="trainEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
+                <input type="text" id="editTrainNo" placeholder="Train Number" value="${t?.train_number || ''}" required class="rounded-input">
+                <input type="text" id="editTrainName" placeholder="Train Name" value="${t?.train_name || ''}" required class="rounded-input">
+                <select id="editTrainType" class="rounded-input">
+                    <option value="Superfast" ${t?.train_type === 'Superfast' ? 'selected' : ''}>Superfast</option>
+                    <option value="Express" ${t?.train_type === 'Express' ? 'selected' : ''}>Express</option>
+                    <option value="Vande Bharat" ${t?.train_type === 'Vande Bharat' ? 'selected' : ''}>Vande Bharat</option>
+                </select>
+                <input type="number" id="editSrcId" placeholder="Source Station ID" value="${t?.source_station_id || ''}" required class="rounded-input">
+                <input type="number" id="editDstId" placeholder="Dest Station ID" value="${t?.destination_station_id || ''}" required class="rounded-input">
+                <button type="submit" class="pill-btn pill-btn-primary">Save Train</button>
+            </form>
+        </div>
+    `;
+    showCustomAdminModal(modalHtml, async (e) => {
+        e.preventDefault();
+        const data = {
+            train_number: document.getElementById('editTrainNo').value,
+            train_name: document.getElementById('editTrainName').value,
+            train_type: document.getElementById('editTrainType').value,
+            source_station_id: parseInt(document.getElementById('editSrcId').value),
+            destination_station_id: parseInt(document.getElementById('editDstId').value)
+        };
+        if (isEdit) await adminApi.updateTrain(t.train_id, data);
+        else await adminApi.createTrain(data);
+        hideCustomAdminModal();
+        loadAdminTab('trains');
+    });
+};
+
+window.showStationEditor = (s = null) => {
+    const isEdit = !!s;
+    const modalHtml = `
+        <div style="padding: 30px;">
+            <h3>${isEdit ? 'Edit Station' : 'Add Station'}</h3>
+            <form id="stationEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
+                <input type="text" id="editStaCode" placeholder="Station Code (e.g. NDLS)" value="${s?.station_code || ''}" required class="rounded-input">
+                <input type="text" id="editStaName" placeholder="Station Name" value="${s?.station_name || ''}" required class="rounded-input">
+                <input type="text" id="editCity" placeholder="City" value="${s?.city || ''}" required class="rounded-input">
+                <input type="text" id="editState" placeholder="State" value="${s?.state || ''}" required class="rounded-input">
+                <button type="submit" class="pill-btn pill-btn-primary">Save Station</button>
+            </form>
+        </div>
+    `;
+    showCustomAdminModal(modalHtml, async (e) => {
+        e.preventDefault();
+        const data = {
+            station_code: document.getElementById('editStaCode').value,
+            station_name: document.getElementById('editStaName').value,
+            city: document.getElementById('editCity').value,
+            state: document.getElementById('editState').value
+        };
+        if (isEdit) await adminApi.updateStation(s.station_id, data);
+        else await adminApi.createStation(data);
+        hideCustomAdminModal();
+        loadAdminTab('stations');
+    });
+};
+
+window.showInstanceEditor = () => {
+    const trainOptions = (window._adminTrainList || []).map(t => `<option value="${t.train_id}">${t.train_number} - ${t.train_name}</option>`).join('');
+    const modalHtml = `
+        <div style="padding: 30px;">
+            <h3>Create Train Instance</h3>
+            <form id="instanceEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
+                <select id="instTrainId" class="rounded-input">${trainOptions}</select>
+                <input type="date" id="instDate" required class="rounded-input">
+                <select id="instStatus" class="rounded-input">
+                    <option value="ON_TIME">On Time</option>
+                    <option value="DELAYED">Delayed</option>
+                </select>
+                <button type="submit" class="pill-btn pill-btn-primary">Create Instance</button>
+            </form>
+        </div>
+    `;
+    showCustomAdminModal(modalHtml, async (e) => {
+        e.preventDefault();
+        const data = {
+            train_id: parseInt(document.getElementById('instTrainId').value),
+            journey_date: document.getElementById('instDate').value,
+            status: document.getElementById('instStatus').value
+        };
+        await adminApi.createTrainInstance(data);
+        hideCustomAdminModal();
+        loadAdminTab('inventory');
+    });
+};
+
+window.showConfigEditor = () => {
+    const trainOptions = (window._adminTrainList || []).map(t => `<option value="${t.train_id}">${t.train_number}</option>`).join('');
+    const classOptions = (window._adminClassList || []).map(c => `<option value="${c.class_id}">${c.class_name} (${c.class_code})</option>`).join('');
+    const modalHtml = `
+        <div style="padding: 30px;">
+            <h3>Manage Seat Config</h3>
+            <form id="configEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
+                <label>Select Train</label><select id="cfgTrainId" class="rounded-input">${trainOptions}</select>
+                <label>Select Class</label><select id="cfgClassId" class="rounded-input">${classOptions}</select>
+                <label>Total Seats</label><input type="number" id="cfgSeats" placeholder="Seats (e.g. 50)" required class="rounded-input">
+                <label>Base Fare</label><input type="number" id="cfgFare" placeholder="Fare (e.g. 1200)" required class="rounded-input">
+                <button type="submit" class="pill-btn pill-btn-primary">Save Config</button>
+            </form>
+        </div>
+    `;
+    showCustomAdminModal(modalHtml, async (e) => {
+        e.preventDefault();
+        const data = {
+            train_id: parseInt(document.getElementById('cfgTrainId').value),
+            class_id: parseInt(document.getElementById('cfgClassId').value),
+            total_seats: parseInt(document.getElementById('cfgSeats').value),
+            base_fare: parseFloat(document.getElementById('cfgFare').value)
+        };
+        await adminApi.saveSeatConfig(data);
+        hideCustomAdminModal();
+        loadAdminTab('inventory');
+    });
+};
+
+// Simple Modal Helper for Admin
+function showCustomAdminModal(html, submitHandler) {
+    const modal = document.getElementById('bookingModal');
+    const content = document.getElementById('bookingModalContent');
+    content.innerHTML = html;
+    modal.classList.add('active');
+    
+    const form = content.querySelector('form');
+    if (form) form.onsubmit = submitHandler;
+}
+
+window.hideCustomAdminModal = () => {
+    document.getElementById('bookingModal').classList.remove('active');
+};
 
 // Global exposure
 window.switchAdminTab = switchAdminTab;
