@@ -1,10 +1,12 @@
 import psycopg2
 import os
 from dotenv import load_dotenv
+import datetime
+import bcrypt
 
 load_dotenv()
 
-# 300+ major Indian railway stations with correct codes, names, cities, states
+# 300+ major Indian railway stations
 STATIONS = [
     ('NDLS', 'New Delhi', 'New Delhi', 'Delhi'),
     ('DLI', 'Delhi Junction', 'Delhi', 'Delhi'),
@@ -109,7 +111,6 @@ STATIONS = [
     ('HW', 'Haridwar Junction', 'Haridwar', 'Uttarakhand'),
     ('SPN', 'Shimla', 'Shimla', 'Himachal Pradesh'),
     ('RE', 'Rewa', 'Rewa', 'Madhya Pradesh'),
-    ('INDB', 'Indore Junction', 'Indore', 'Madhya Pradesh'),
     ('STA', 'Satna Junction', 'Satna', 'Madhya Pradesh'),
     ('BDTS', 'Bandra Terminus', 'Mumbai', 'Maharashtra'),
     ('PNVL', 'Panvel', 'Navi Mumbai', 'Maharashtra'),
@@ -127,7 +128,6 @@ STATIONS = [
 ]
 
 TRAINS = [
-    # (number, name, type, source_code, dest_code)
     ('12951', 'Mumbai Rajdhani Express', 'Rajdhani', 'NDLS', 'BCT'),
     ('12952', 'New Delhi Rajdhani Express', 'Rajdhani', 'BCT', 'NDLS'),
     ('12301', 'Howrah Rajdhani Express', 'Rajdhani', 'NDLS', 'HWH'),
@@ -176,125 +176,90 @@ TRAIN_CLASSES = [
 def seed():
     DATABASE_URL = os.getenv("DATABASE_URL")
     if not DATABASE_URL:
-        print("ERROR: DATABASE_URL not set in .env"); return
+        print("ERROR: DATABASE_URL not set"); return
 
     url = DATABASE_URL
     if 'sslmode=' not in url:
         url += ('&' if '?' in url else '?') + 'sslmode=require'
 
     conn = psycopg2.connect(url)
-    conn.autocommit = False
+    conn.autocommit = True
     cur = conn.cursor()
 
     try:
-        # ── Clear everything ──
-        print("Truncating all tables for a fresh start...")
-        cur.execute("""
-            TRUNCATE audit_logs, refunds, passengers, payments, bookings, 
-                     train_instances, train_seat_configurations, train_schedules, 
-                     train_classes, trains, stations CASCADE;
-        """)
-
-        # ── 1. Stations ──
-        print("Inserting stations...")
-        # Deduplicate by code
-        seen = set()
-        unique_stations = []
-        for s in STATIONS:
-            if s[0] not in seen:
-                seen.add(s[0])
-                unique_stations.append(s)
-        cur.executemany(
-            "INSERT INTO stations (station_code, station_name, city, state) VALUES (%s,%s,%s,%s)",
-            unique_stations
-        )
-        print(f"  Inserted {len(unique_stations)} stations.")
-
-        # Station code -> ID map
-        cur.execute("SELECT station_id, station_code FROM stations")
-        s_map = {code: sid for sid, code in cur.fetchall()}
-
-        # ── 2. Train Classes ──
-        print("Inserting train classes...")
-        cur.executemany(
-            "INSERT INTO train_classes (class_code, class_name) VALUES (%s,%s)",
-            TRAIN_CLASSES
-        )
-        cur.execute("SELECT class_id, class_code FROM train_classes")
-        c_map = {code: cid for cid, code in cur.fetchall()}
-
-        # ── 3. Trains ──
-        print("Inserting trains...")
-        valid_trains = [
-            (num, name, typ, s_map[src], s_map[dst])
-            for num, name, typ, src, dst in TRAINS
-            if src in s_map and dst in s_map
-        ]
-        cur.executemany(
-            "INSERT INTO trains (train_number, train_name, train_type, source_station_id, destination_station_id) VALUES (%s,%s,%s,%s,%s)",
-            valid_trains
-        )
-        print(f"  Inserted {len(valid_trains)} trains.")
-
-        # ── 4. Seat Configs ──
-        cur.execute("SELECT train_id, train_type FROM trains")
-        all_trains = cur.fetchall()
-        configs = []
-        for tid, ttype in all_trains:
-            for cls_code, fare in CLASS_CONFIGS.get(ttype, CLASS_CONFIGS['Express']):
-                if cls_code in c_map:
-                    seats = 20 if cls_code == '1A' else (60 if cls_code in ['2A','EC'] else (400 if cls_code in ['SL','GEN'] else 180))
-                    configs.append((tid, c_map[cls_code], seats, fare))
-        cur.executemany(
-            "INSERT INTO train_seat_configurations (train_id, class_id, total_seats, base_fare) VALUES (%s,%s,%s,%s)",
-            configs
-        )
-
-        # ── 5. Train Instances (90 days) ──
-        import datetime
-        today = datetime.date.today()
-        instances = []
-        tids = [r[0] for r in all_trains]
-        for i in range(90):
-            d = today + datetime.timedelta(days=i)
-            for tid in tids:
-                instances.append((tid, d, 'ON_TIME'))
-        cur.executemany(
-            "INSERT INTO train_instances (train_id, journey_date, status) VALUES (%s,%s,%s)",
-            instances
-        )
-        print(f"  Inserted {len(instances)} train instances (90 days).")
-
-        # ── 6. Train Schedules (Source & Destination minimum) ──
-        print("Inserting train schedules...")
-        schedules = []
-        cur.execute("SELECT train_id, source_station_id, destination_station_id FROM trains")
-        for tid, src_id, dst_id in cur.fetchall():
-            schedules.append((tid, src_id, 1, '10:00:00', '10:15:00', 1, 0))
-            schedules.append((tid, dst_id, 2, '22:00:00', '22:15:00', 1, 1400))
-        cur.executemany(
-            "INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-            schedules
-        )
-
-        # ── 7. Admin user ──
-        import bcrypt
+        # 1. Admin user - DO THIS FIRST so we can test the site
+        print("Resetting admin user...")
         admin_pass = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
         cur.execute("SELECT user_id FROM users WHERE username='admin'")
         if cur.fetchone():
             cur.execute("UPDATE users SET role='admin', password_hash=%s, account_status='ACTIVE' WHERE username='admin'", (admin_pass,))
             print("Admin user reset to 'admin123'.")
         else:
-            cur.execute(
-                "INSERT INTO users (username, password_hash, email, role, account_status) VALUES ('admin',%s,'admin@aerorail.com','admin','ACTIVE')",
-                (admin_pass,)
-            )
+            cur.execute("INSERT INTO users (username, password_hash, email, role, account_status) VALUES ('admin',%s,'admin@aerorail.com','admin','ACTIVE')", (admin_pass,))
             print("Admin user created with 'admin123'.")
 
-        conn.commit()
+        # 2. Stations
+        print("Upserting stations...")
+        seen = set()
+        unique_stations = []
+        for s in STATIONS:
+            if s[0] not in seen:
+                seen.add(s[0])
+                unique_stations.append(s)
+        
+        for s in unique_stations:
+            cur.execute("INSERT INTO stations (station_code, station_name, city, state) VALUES (%s,%s,%s,%s) ON CONFLICT (station_code) DO NOTHING", s)
+        print(f"  Processed {len(unique_stations)} stations.")
+
+        cur.execute("SELECT station_id, station_code FROM stations")
+        s_map = {code: sid for sid, code in cur.fetchall()}
+
+        # 3. Train Classes
+        print("Upserting classes...")
+        for tc in TRAIN_CLASSES:
+            cur.execute("INSERT INTO train_classes (class_code, class_name) VALUES (%s,%s) ON CONFLICT (class_code) DO NOTHING", tc)
+        cur.execute("SELECT class_id, class_code FROM train_classes")
+        c_map = {code: cid for cid, code in cur.fetchall()}
+
+        # 4. Trains
+        print("Upserting trains...")
+        valid_trains = [
+            (num, name, typ, s_map[src], s_map[dst])
+            for num, name, typ, src, dst in TRAINS
+            if src in s_map and dst in s_map
+        ]
+        for vt in valid_trains:
+            cur.execute("INSERT INTO trains (train_number, train_name, train_type, source_station_id, destination_station_id) VALUES (%s,%s,%s,%s,%s) ON CONFLICT (train_number) DO NOTHING", vt)
+        print(f"  Processed {len(valid_trains)} trains.")
+
+        # 5. Seat Configs
+        cur.execute("SELECT train_id, train_type FROM trains")
+        all_trains = cur.fetchall()
+        print("Upserting seat configs...")
+        for tid, ttype in all_trains:
+            for cls_code, fare in CLASS_CONFIGS.get(ttype, CLASS_CONFIGS['Express']):
+                if cls_code in c_map:
+                    seats = 20 if cls_code == '1A' else (60 if cls_code in ['2A','EC'] else (400 if cls_code in ['SL','GEN'] else 180))
+                    cur.execute("INSERT INTO train_seat_configurations (train_id, class_id, total_seats, base_fare) VALUES (%s,%s,%s,%s) ON CONFLICT (train_id, class_id) DO UPDATE SET total_seats=EXCLUDED.total_seats, base_fare=EXCLUDED.base_fare", (tid, c_map[cls_code], seats, fare))
+
+        # 6. Train Instances (90 days)
+        print("Upserting train instances (90 days)...")
+        today = datetime.date.today()
+        tids = [r[0] for r in all_trains]
+        for i in range(90):
+            d = today + datetime.timedelta(days=i)
+            for tid in tids:
+                cur.execute("INSERT INTO train_instances (train_id, journey_date, status) VALUES (%s,%s,%s) ON CONFLICT (train_id, journey_date) DO NOTHING", (tid, d, 'ON_TIME'))
+        
+        # 7. Train Schedules
+        print("Upserting train schedules...")
+        cur.execute("SELECT train_id, source_station_id, destination_station_id FROM trains")
+        for tid, src_id, dst_id in cur.fetchall():
+            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, station_id) DO NOTHING", (tid, src_id, 1, '10:00:00', '10:15:00', 1, 0))
+            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, station_id) DO NOTHING", (tid, dst_id, 2, '22:00:00', '22:15:00', 1, 1400))
+
         print("SUCCESS: Seeding completed successfully!")
     except Exception as e:
-        conn.rollback()
         print(f"ERROR: {e}")
         raise
     finally:

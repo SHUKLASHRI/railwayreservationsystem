@@ -130,7 +130,8 @@ export const state = {
     searchResults: [],
     selectedTrain: null,
     isRegistering: false,
-    language: localStorage.getItem('aeroRailLanguage') || 'en'
+    language: localStorage.getItem('aeroRailLanguage') || 'en',
+    searchDate: new Date().toISOString().split('T')[0]
 };
 
 export function t(key) {
