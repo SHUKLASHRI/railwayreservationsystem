@@ -100,7 +100,7 @@ export async function checkAuth() {
                 <div style="display: flex; align-items: center; gap: 15px;">
                     <div class="lang-selector"></div>
                     <span style="font-weight: 600; font-size: 0.9rem;">${t('hello')}, ${state.user}</span>
-                    <a href="${state.role === 'admin' ? '/admin' : '/dashboard'}" class="btn btn-primary" onclick="route(event)">${state.role === 'admin' ? 'Admin Dashboard' : t('my_account')}</a>
+                    <a href="${state.role === 'admin' ? '/admin' : '/profile'}" class="btn btn-primary" onclick="route(event)">${state.role === 'admin' ? 'Admin Dashboard' : t('my_account')}</a>
                     <button class="btn" style="background: #f1f5f9; color: var(--text);" onclick="logout()">${t('logout')}</button>
                 </div>
             `;

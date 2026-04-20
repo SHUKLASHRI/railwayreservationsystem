@@ -71,14 +71,27 @@ def logout():
 @auth_bp.route('/me', methods=['GET'])
 def get_me():
     if 'user_id' in session:
-        return jsonify({
-            "status": "success",
-            "user": {
-                "user_id": session['user_id'],
-                "username": session['username'],
-                "role": session['role']
-            }
-        })
+        user_id = session['user_id']
+        user_data = execute_query(
+            "SELECT user_id, username, email, phone, first_name, last_name, date_of_birth, gender, role FROM users WHERE user_id = %s",
+            (user_id,),
+            fetchone=True
+        )
+        if user_data:
+            return jsonify({
+                "status": "success",
+                "user": {
+                    "user_id": user_data['user_id'],
+                    "username": user_data['username'],
+                    "email": user_data['email'],
+                    "phone": user_data['phone'],
+                    "first_name": user_data['first_name'],
+                    "last_name": user_data['last_name'],
+                    "date_of_birth": str(user_data['date_of_birth']) if user_data['date_of_birth'] else None,
+                    "gender": user_data['gender'],
+                    "role": user_data['role']
+                }
+            })
     return jsonify({"status": "error", "message": "Not authenticated"}), 401
 
 @auth_bp.route('/google-login', methods=['POST'])

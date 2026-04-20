@@ -3,6 +3,7 @@ import { renderHome } from './views/home.js';
 import { renderPNR } from './views/pnr.js';
 import { renderTracking } from './views/tracking.js';
 import { renderDashboard } from './views/dashboard.js';
+import { renderProfile } from './views/profile.js'; // Import renderProfile
 import { renderBookingConfirmation } from './views/confirmation.js';
 import { renderAdminLayout } from './views/admin.js';
 
@@ -28,6 +29,8 @@ export function handleRouting() {
         renderTracking();
     } else if (path === '/dashboard') {
         renderDashboard();
+    } else if (path === '/profile') { // Handle the new profile route
+        renderProfile();
     } else if (path.startsWith('/booking-confirmed/')) {
         const pnr = path.split('/').filter(Boolean)[1];
         renderBookingConfirmation(pnr);

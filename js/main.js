@@ -64,9 +64,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Keep both legacy and current event names for compatibility.
     window.addEventListener('navbar-update', updateNavbarLanguageSelector);
-    window.addEventListener('navbar-updated', updateNavbarLanguageSelector);
-    window.addEventListener('language-changed', async () => {
-        await checkAuth();
-        updateNavbarLanguageSelector();
-    });
-});
+    window.addEventListener('
