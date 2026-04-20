@@ -7,6 +7,12 @@
  */
 
 import { state } from './state.js';
+import { renderHome } from './views/home.js';
+import { renderPNR } from './views/pnr.js';
+import { renderTracking } from './views/tracking.js';
+import { renderDashboard } from './views/dashboard.js';
+import { renderBookingConfirmation } from './views/confirmation.js';
+import { renderAdminLayout } from './views/admin.js';
 
 export function route(e) {
     if (e && e.preventDefault) e.preventDefault();
