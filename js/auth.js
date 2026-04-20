@@ -86,33 +86,40 @@ export async function handleAuth(e) {
 }
 
 export async function checkAuth() {
-    const resp = await fetch('/api/auth/current-user');
-    const data = await resp.json();
-    const navActions = document.getElementById('navActions');
-    if (!navActions) return;
+    try {
+        const resp = await fetch('/api/auth/me');
+        const data = await resp.json();
+        const navActions = document.getElementById('navActions');
+        if (!navActions) return;
 
-    if (data.logged_in) {
-        state.user = data.username;
-        state.role = data.role || 'customer';
-        
-        navActions.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="lang-selector"></div>
-                <span style="font-weight: 600; font-size: 0.9rem;">${t('hello')}, ${data.username}</span>
-                <a href="${state.role === 'admin' ? '/admin' : '/dashboard'}" class="btn btn-primary" onclick="route(event)">${state.role === 'admin' ? 'Admin Dashboard' : t('my_account')}</a>
-                <button class="btn" style="background: #f1f5f9; color: var(--text);" onclick="logout()">${t('logout')}</button>
-            </div>
-        `;
-    } else {
-        state.user = null;
-        navActions.innerHTML = `
-            <div class="lang-selector"></div>
-            <button class="btn btn-primary" onclick="showAuthModal()">${t('login')}</button>
-        `;
+        if (data.status === 'success') {
+            state.user = data.user.username;
+            state.role = data.user.role || 'customer';
+            
+            navActions.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div class="lang-selector"></div>
+                    <span style="font-weight: 600; font-size: 0.9rem;">${t('hello')}, ${state.user}</span>
+                    <a href="${state.role === 'admin' ? '/admin' : '/dashboard'}" class="btn btn-primary" onclick="route(event)">${state.role === 'admin' ? 'Admin Dashboard' : t('my_account')}</a>
+                    <button class="btn" style="background: #f1f5f9; color: var(--text);" onclick="logout()">${t('logout')}</button>
+                </div>
+            `;
+        } else {
+            state.user = null;
+            navActions.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div class="lang-selector"></div>
+                    <button class="btn btn-secondary" style="background: transparent; border: 1px solid var(--border-light); color: var(--text);" onclick="showAuthModal(true)">${t('register_link')}</button>
+                    <button class="btn btn-primary" onclick="showAuthModal(false)">${t('login')}</button>
+                </div>
+            `;
+        }
+        // Update selector immediately after nav HTML changes.
+        updateNavbarLanguageSelector();
+        window.dispatchEvent(new Event('navbar-updated'));
+    } catch (err) {
+        console.error("Auth check error", err);
     }
-    // Update selector immediately after nav HTML changes.
-    updateNavbarLanguageSelector();
-    window.dispatchEvent(new Event('navbar-updated'));
 }
 
 export async function logout() {

@@ -25,7 +25,8 @@ export const debounce = (func, wait) => {
     };
 };
 
-export function showAuthModal() {
+export function showAuthModal(isRegister = false) {
+    state.isRegistering = isRegister === true;
     document.getElementById('authModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
     updateAuthModal();
