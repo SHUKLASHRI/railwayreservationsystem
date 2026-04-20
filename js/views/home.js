@@ -7,7 +7,8 @@
  */
 
 import { state, t } from '../state.js';
-// ...
+import { debounce, showToast, updateNavbarLanguageSelector } from '../utils.js';
+import { performSearch, selectClass, startBooking } from '../booking.js';
 export function renderHome() {
     /**
      * HOME RENDERER

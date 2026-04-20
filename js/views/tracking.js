@@ -6,15 +6,8 @@
  * USE: Core 'Tracking' page of the app.
  */
 
-/**
- * FILE: js/views/home.js
- * CONTENT: Hero Section and Train Search UI
- * EXPLANATION: Renders the landing page where users can search for trains by source/destination.
- *              It handles the station autocomplete and date selection logic.
- * USE: Main landing page of the application.
- */
-
 import { state, t } from '../state.js';
+import { debounce, showToast } from '../utils.js';
 
 export function renderTracking() {
     /**

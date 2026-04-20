@@ -6,16 +6,8 @@
  * USE: Rendered when a logged-in user clicks on 'My Bookings'.
  */
 
-/**
- * FILE: js/views/home.js
- * CONTENT: Landing Page and Search Controller
- * EXPLANATION: The main interface for the AeroRail app. It handles the 'From' 
- *              and 'To' station search, date picker, and results display.
- * USE: Default view of the application.
- */
-
 import { state, t } from '../state.js';
-// ...
+import { showToast } from '../utils.js';
 export async function renderDashboard() {
     /**
      * DASHBOARD RENDERER
