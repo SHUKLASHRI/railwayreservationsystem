@@ -6,6 +6,18 @@ import bcrypt
 
 load_dotenv()
 
+ROUTE_TIMES = {
+    '12951': ('16:55:00', '08:35:00', 2),
+    '12301': ('16:50:00', '10:05:00', 2),
+    '12002': ('06:00:00', '14:25:00', 1),
+    '22436': ('06:00:00', '14:00:00', 1),
+    '12627': ('19:20:00', '10:30:00', 3),
+    '12925': ('11:35:00', '20:15:00', 2),
+    '12137': ('19:35:00', '05:05:00', 3),
+    '12611': ('06:00:00', '10:30:00', 3),
+    '12213': ('23:40:00', '07:00:00', 3),
+}
+
 # 300+ major Indian railway stations
 STATIONS = [
     ('NDLS', 'New Delhi', 'New Delhi', 'Delhi'),
@@ -253,10 +265,11 @@ def seed():
         
         # 7. Train Schedules
         print("Upserting train schedules...")
-        cur.execute("SELECT train_id, source_station_id, destination_station_id FROM trains")
-        for tid, src_id, dst_id in cur.fetchall():
-            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, stop_sequence) DO NOTHING", (tid, src_id, 1, '10:00:00', '10:15:00', 1, 0))
-            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, stop_sequence) DO NOTHING", (tid, dst_id, 2, '22:00:00', '22:15:00', 1, 1400))
+        cur.execute("SELECT train_id, train_number, source_station_id, destination_station_id FROM trains")
+        for tid, train_number, src_id, dst_id in cur.fetchall():
+            dep_time, arr_time, arr_day = ROUTE_TIMES.get(str(train_number), ('10:15:00', '22:00:00', 1))
+            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, stop_sequence) DO UPDATE SET station_id=EXCLUDED.station_id, arrival_time=EXCLUDED.arrival_time, departure_time=EXCLUDED.departure_time, day_count=EXCLUDED.day_count, distance_from_source=EXCLUDED.distance_from_source", (tid, src_id, 1, dep_time, dep_time, 1, 0))
+            cur.execute("INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (train_id, stop_sequence) DO UPDATE SET station_id=EXCLUDED.station_id, arrival_time=EXCLUDED.arrival_time, departure_time=EXCLUDED.departure_time, day_count=EXCLUDED.day_count, distance_from_source=EXCLUDED.distance_from_source", (tid, dst_id, 2, arr_time, arr_time, arr_day, 1400))
 
         print("SUCCESS: Seeding completed successfully!")
     except Exception as e:

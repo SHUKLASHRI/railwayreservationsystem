@@ -1,8 +1,5 @@
 import requests
 from bs4 import BeautifulSoup
-import json
-import random
-from datetime import datetime
 
 class ScraperService:
     HEADERS = {
@@ -25,19 +22,10 @@ class ScraperService:
             # In a real environment without bot protection, we'd extract from soup.find(...)
             title = soup.title.string if soup.title else "PNR Status"
             
-            # Scraped Mock Response using BS4 element checks
-            status_data = {
-                "status": "success",
-                "pnr": pnr,
-                "train_name": f"Scraped Express {pnr[:4]}",
-                "journey_date": datetime.now().strftime("%d-%m-%Y"),
-                "from_station": "New Delhi (NDLS)",
-                "to_station": "Mumbai (BCT)",
-                "passengers": [
-                    {"first_name": "Passenger", "last_name": "One", "coach_number": "B1", "seat_number": random.randint(10, 50)},
-                ]
+            return {
+                "status": "error",
+                "message": "Live PNR scraping is unavailable; only local bookings can show ticket status.",
             }
-            return status_data
         except Exception as e:
             print(f"Scraping Error: {e}")
             return {"status": "error", "message": "Failed to scrape PNR data"}

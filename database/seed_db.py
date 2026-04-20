@@ -1,5 +1,17 @@
 from database.db_connection import get_connection
 
+ROUTE_TIMES = {
+    '12951': ('16:55:00', '08:35:00', 2),
+    '12301': ('16:50:00', '10:05:00', 2),
+    '12002': ('06:00:00', '14:25:00', 1),
+    '22436': ('06:00:00', '14:00:00', 1),
+    '12627': ('19:20:00', '10:30:00', 3),
+    '12925': ('11:35:00', '20:15:00', 2),
+    '12137': ('19:35:00', '05:05:00', 3),
+    '12611': ('06:00:00', '10:30:00', 3),
+    '12213': ('23:40:00', '07:00:00', 3),
+}
+
 def seed():
     conn = get_connection()
     cur = conn.cursor()
@@ -87,15 +99,16 @@ def seed():
         print(f"Inserted {len(valid_trains)} trains.")
 
         # 3b. Minimal route (source -> destination) so /api/train/search can match intermediate booking
-        cur.execute("SELECT train_id, source_station_id, destination_station_id FROM trains")
-        for tid, src_id, dst_id in cur.fetchall():
+        cur.execute("SELECT train_id, train_number, source_station_id, destination_station_id FROM trains")
+        for tid, train_number, src_id, dst_id in cur.fetchall():
+            dep_time, arr_time, arr_day = ROUTE_TIMES.get(str(train_number), ("10:15:00", "22:00:00", 1))
             cur.execute(
                 f"INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES ({q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark})",
-                (tid, src_id, 1, "10:00:00", "10:15:00", 1, 0),
+                (tid, src_id, 1, dep_time, dep_time, 1, 0),
             )
             cur.execute(
                 f"INSERT INTO train_schedules (train_id, station_id, stop_sequence, arrival_time, departure_time, day_count, distance_from_source) VALUES ({q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark}, {q_mark})",
-                (tid, dst_id, 2, "22:00:00", "22:15:00", 1, 1400),
+                (tid, dst_id, 2, arr_time, arr_time, arr_day, 1400),
             )
         print("Inserted minimal train schedules.")
 

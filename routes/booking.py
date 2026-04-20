@@ -1,22 +1,309 @@
-from flask import Blueprint, request, jsonify, session, send_file
-from database.db_connection import execute_query
-from services.ticket_service import generate_ticket_pdf
-from services.scraper_service import ScraperService
-import random
-import string
 import os
+import random
+import sqlite3
+import string
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+from flask import Blueprint, jsonify, request, send_file, session
+from psycopg2.extras import RealDictCursor
+
+from database.db_connection import execute_query, get_connection
+from services.ticket_service import generate_ticket_pdf
 
 booking_bp = Blueprint('booking', __name__)
 
+_BOOKING_ROUTE_COLUMNS_READY = False
+
+
 def generate_pnr():
     return ''.join(random.choices(string.digits, k=10))
+
+
+def _is_sqlite(conn):
+    return isinstance(conn, sqlite3.Connection)
+
+
+def _cursor(conn):
+    return conn.cursor() if _is_sqlite(conn) else conn.cursor(cursor_factory=RealDictCursor)
+
+
+def _query(conn, sql):
+    return sql.replace('%s', '?') if _is_sqlite(conn) else sql
+
+
+def _as_dict(row):
+    return dict(row) if row else None
+
+
+def _format_time(value, fallback='--:--'):
+    if value is None:
+        return fallback
+    text = str(value)
+    return text[:5] if len(text) >= 5 else text
+
+
+def _minutes(value):
+    text = _format_time(value, '')
+    try:
+        hours, minutes = text.split(':')[:2]
+        return int(hours) * 60 + int(minutes)
+    except (TypeError, ValueError):
+        return None
+
+
+def _base_date(journey_date):
+    if hasattr(journey_date, 'strftime') and not isinstance(journey_date, str):
+        return journey_date
+    return datetime.strptime(str(journey_date)[:10], '%Y-%m-%d').date()
+
+
+def _journey_dates(journey_date, source_day_count, dest_day_count, departure_time, arrival_time):
+    source_offset = max(int(source_day_count or 1) - 1, 0)
+    dest_offset = max(int(dest_day_count or 1) - 1, 0)
+    departure_date = _base_date(journey_date) + timedelta(days=source_offset)
+    arrival_date = _base_date(journey_date) + timedelta(days=dest_offset)
+
+    departure_minutes = _minutes(departure_time)
+    arrival_minutes = _minutes(arrival_time)
+    if (
+        dest_offset <= source_offset
+        and departure_minutes is not None
+        and arrival_minutes is not None
+        and arrival_minutes < departure_minutes
+    ):
+        arrival_date += timedelta(days=1)
+
+    return departure_date, arrival_date
+
+
+def _duration_label(departure_date, departure_time, arrival_date, arrival_time):
+    departure_minutes = _minutes(departure_time)
+    arrival_minutes = _minutes(arrival_time)
+    if departure_minutes is None or arrival_minutes is None:
+        return '--'
+
+    departure_dt = datetime.combine(departure_date, datetime.min.time()) + timedelta(minutes=departure_minutes)
+    arrival_dt = datetime.combine(arrival_date, datetime.min.time()) + timedelta(minutes=arrival_minutes)
+    if arrival_dt < departure_dt:
+        arrival_dt += timedelta(days=1)
+
+    total_minutes = int((arrival_dt - departure_dt).total_seconds() // 60)
+    hours, minutes = divmod(total_minutes, 60)
+    return f"{hours}h {minutes:02d}m"
+
+
+def _json_ready(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    if hasattr(value, 'isoformat'):
+        return value.isoformat()
+    return value
+
+
+def ensure_booking_route_columns():
+    global _BOOKING_ROUTE_COLUMNS_READY
+    if _BOOKING_ROUTE_COLUMNS_READY:
+        return
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        if _is_sqlite(conn):
+            cur.execute("PRAGMA table_info(bookings)")
+            existing = {row[1] for row in cur.fetchall()}
+            additions = {
+                'source_station_id': 'source_station_id INTEGER',
+                'destination_station_id': 'destination_station_id INTEGER',
+                'departure_time': 'departure_time TEXT',
+                'arrival_time': 'arrival_time TEXT',
+                'departure_date': 'departure_date TEXT',
+                'arrival_date': 'arrival_date TEXT',
+            }
+            for column, definition in additions.items():
+                if column not in existing:
+                    cur.execute(f"ALTER TABLE bookings ADD COLUMN {definition}")
+        else:
+            for statement in (
+                "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS source_station_id INTEGER",
+                "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS destination_station_id INTEGER",
+                "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS departure_time TEXT",
+                "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS arrival_time TEXT",
+                "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS departure_date TEXT",
+                "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS arrival_date TEXT",
+            ):
+                cur.execute(statement)
+        conn.commit()
+        _BOOKING_ROUTE_COLUMNS_READY = True
+    except Exception as exc:
+        conn.rollback()
+        print(f"Booking route column check failed: {exc}")
+        if os.getenv('VERCEL') == '1':
+            raise
+    finally:
+        conn.close()
+
+
+def _resolve_station_id(cur, conn, value):
+    if value in (None, ''):
+        return None
+    value_text = str(value).strip()
+    if value_text.isdigit():
+        return int(value_text)
+
+    cur.execute(
+        _query(conn, "SELECT station_id FROM stations WHERE station_code = %s"),
+        (value_text.upper(),),
+    )
+    station = _as_dict(cur.fetchone())
+    return station['station_id'] if station else None
+
+
+def _get_route_schedule(cur, conn, train_id, journey_date, source_station_id, destination_station_id):
+    cur.execute(
+        _query(
+            conn,
+            """
+            SELECT s_src.station_id AS source_station_id,
+                   s_src.station_code AS source_code,
+                   s_src.station_name AS from_station,
+                   s_dst.station_id AS destination_station_id,
+                   s_dst.station_code AS dest_code,
+                   s_dst.station_name AS to_station,
+                   ts_src.departure_time,
+                   ts_dst.arrival_time,
+                   ts_src.day_count AS source_day_count,
+                   ts_dst.day_count AS dest_day_count
+            FROM train_schedules ts_src
+            JOIN stations s_src ON s_src.station_id = ts_src.station_id
+            JOIN train_schedules ts_dst ON ts_dst.train_id = ts_src.train_id
+                AND ts_dst.stop_sequence > ts_src.stop_sequence
+            JOIN stations s_dst ON s_dst.station_id = ts_dst.station_id
+            WHERE ts_src.train_id = %s
+              AND ts_src.station_id = %s
+              AND ts_dst.station_id = %s
+            LIMIT 1
+            """,
+        ),
+        (train_id, source_station_id, destination_station_id),
+    )
+    route = _as_dict(cur.fetchone())
+    if not route:
+        return None
+
+    departure_time = _format_time(route.get('departure_time'))
+    arrival_time = _format_time(route.get('arrival_time'))
+    departure_date, arrival_date = _journey_dates(
+        journey_date,
+        route.get('source_day_count'),
+        route.get('dest_day_count'),
+        departure_time,
+        arrival_time,
+    )
+
+    route['departure_time'] = departure_time
+    route['arrival_time'] = arrival_time
+    route['departure_date'] = departure_date.isoformat()
+    route['arrival_date'] = arrival_date.isoformat()
+    route['duration'] = _duration_label(departure_date, departure_time, arrival_date, arrival_time)
+    return route
+
+
+def _enrich_booking(booking):
+    booking = {key: _json_ready(value) for key, value in dict(booking).items()}
+    departure_time = _format_time(booking.get('departure_time') or booking.get('schedule_departure_time'))
+    arrival_time = _format_time(booking.get('arrival_time') or booking.get('schedule_arrival_time'))
+
+    departure_date = booking.get('departure_date')
+    arrival_date = booking.get('arrival_date')
+    if not departure_date or not arrival_date:
+        computed_departure_date, computed_arrival_date = _journey_dates(
+            booking.get('journey_date'),
+            booking.get('source_day_count'),
+            booking.get('dest_day_count'),
+            departure_time,
+            arrival_time,
+        )
+        departure_date = computed_departure_date.isoformat()
+        arrival_date = computed_arrival_date.isoformat()
+
+    try:
+        dep_date_obj = datetime.strptime(str(departure_date)[:10], '%Y-%m-%d').date()
+        arr_date_obj = datetime.strptime(str(arrival_date)[:10], '%Y-%m-%d').date()
+        duration = _duration_label(dep_date_obj, departure_time, arr_date_obj, arrival_time)
+    except ValueError:
+        duration = '--'
+
+    booking['departure_time'] = departure_time
+    booking['arrival_time'] = arrival_time
+    booking['departure_date'] = str(departure_date)[:10]
+    booking['arrival_date'] = str(arrival_date)[:10]
+    booking['date_of_start'] = booking['departure_date']
+    booking['date_of_arrival'] = booking['arrival_date']
+    booking['duration'] = duration
+    return booking
+
+
+def _booking_lookup_query(where_clause):
+    return f"""
+        SELECT b.*, t.train_name, t.train_number, ti.journey_date,
+               bs.station_name AS from_station, bs.station_code AS from_code,
+               ds.station_name AS to_station, ds.station_code AS to_code,
+               ts_src.departure_time AS schedule_departure_time,
+               ts_dst.arrival_time AS schedule_arrival_time,
+               ts_src.day_count AS source_day_count,
+               ts_dst.day_count AS dest_day_count
+        FROM bookings b
+        JOIN train_instances ti ON b.instance_id = ti.instance_id
+        JOIN trains t ON ti.train_id = t.train_id
+        LEFT JOIN stations bs ON bs.station_id = COALESCE(b.source_station_id, t.source_station_id)
+        LEFT JOIN stations ds ON ds.station_id = COALESCE(b.destination_station_id, t.destination_station_id)
+        LEFT JOIN train_schedules ts_src ON ts_src.train_id = t.train_id
+            AND ts_src.station_id = COALESCE(b.source_station_id, t.source_station_id)
+        LEFT JOIN train_schedules ts_dst ON ts_dst.train_id = t.train_id
+            AND ts_dst.station_id = COALESCE(b.destination_station_id, t.destination_station_id)
+        {where_clause}
+    """
+
+
+def _get_booking_payload(pnr):
+    ensure_booking_route_columns()
+    booking = execute_query(
+        _booking_lookup_query("WHERE b.pnr = %s"),
+        (pnr,),
+        fetchone=True,
+    )
+    if not booking:
+        return None
+
+    passengers = execute_query(
+        """
+        SELECT p.*, tc.class_code, tc.class_name
+        FROM passengers p
+        JOIN train_classes tc ON p.class_id = tc.class_id
+        WHERE p.booking_id = %s
+        ORDER BY p.passenger_id
+        """,
+        (booking['booking_id'],),
+        fetchall=True,
+    ) or []
+
+    return {
+        "status": "success",
+        "booking": _enrich_booking(booking),
+        "passengers": [{key: _json_ready(value) for key, value in dict(p).items()} for p in passengers],
+        "ticket_available": True,
+    }
+
 
 @booking_bp.route('/book', methods=['POST'])
 def book_ticket():
     if 'user_id' not in session:
         return jsonify({"status": "error", "message": "Login required"}), 401
 
-    data = request.get_json()
+    ensure_booking_route_columns()
+
+    data = request.get_json(silent=True) or {}
     instance_id = data.get('instance_id')
     passengers = data.get('passengers', [])
     total_fare = data.get('total_fare')
@@ -26,141 +313,232 @@ def book_ticket():
 
     pnr = generate_pnr()
     user_id = session['user_id']
+    conn = get_connection()
+    cur = _cursor(conn)
 
     try:
-        # 1. Create Booking
-        booking_id = execute_query(
-            "INSERT INTO bookings (user_id, instance_id, pnr, total_fare, status) VALUES (%s, %s, %s, %s, 'CONFIRMED') RETURNING booking_id",
-            (user_id, instance_id, pnr, total_fare),
-            commit=True, fetchone=True
+        cur.execute(
+            _query(
+                conn,
+                """
+                SELECT ti.instance_id, ti.train_id, ti.journey_date,
+                       t.source_station_id, t.destination_station_id
+                FROM train_instances ti
+                JOIN trains t ON ti.train_id = t.train_id
+                WHERE ti.instance_id = %s
+                """,
+            ),
+            (instance_id,),
         )
-        
-        # Helper for SQLite which doesn't support RETURNING easily in this wrapper
-        if not booking_id:
-             booking_id = execute_query("SELECT last_insert_rowid() as booking_id", fetchone=True)
-        
-        b_id = booking_id['booking_id']
+        train_instance = _as_dict(cur.fetchone())
+        if not train_instance:
+            return jsonify({"status": "error", "message": "Selected train instance was not found"}), 400
 
-        # Extract train_id for priority system math
-        train_id_row = execute_query("SELECT train_id FROM train_instances WHERE instance_id = %s", (instance_id,), fetchone=True)
-        t_id = train_id_row['train_id']
+        source_station_id = (
+            _resolve_station_id(cur, conn, data.get('source_station_id'))
+            or _resolve_station_id(cur, conn, data.get('source_code'))
+            or train_instance['source_station_id']
+        )
+        destination_station_id = (
+            _resolve_station_id(cur, conn, data.get('destination_station_id'))
+            or _resolve_station_id(cur, conn, data.get('dest_station_id'))
+            or _resolve_station_id(cur, conn, data.get('dest_code'))
+            or train_instance['destination_station_id']
+        )
 
-        # 2. Add Passengers using Priority Waitlist System
-        for p in passengers:
-            # Ensure class_id is valid to prevent foreign key violations on mock data
-            valid_class = execute_query("SELECT class_id FROM train_classes WHERE class_id = %s", (p['class_id'],), fetchone=True)
-            if not valid_class:
-                fallback_class = execute_query("SELECT class_id FROM train_classes WHERE class_code = '3A' OR class_code = 'SL' LIMIT 1", fetchone=True)
-                p['class_id'] = fallback_class['class_id'] if fallback_class else p['class_id']
+        route = _get_route_schedule(
+            cur,
+            conn,
+            train_instance['train_id'],
+            train_instance['journey_date'],
+            source_station_id,
+            destination_station_id,
+        )
+        if not route:
+            return jsonify({"status": "error", "message": "Selected route is not valid for this train"}), 400
 
-            # Find total seats capacity
-            config = execute_query("SELECT total_seats FROM train_seat_configurations WHERE train_id = %s AND class_id = %s", (t_id, p['class_id']), fetchone=True)
-            total_seats = config['total_seats'] if config else 50
-            
-            # Count currently assigned
-            booked_count_row = execute_query(
-                "SELECT COUNT(*) as count FROM passengers p_inner JOIN bookings b_inner ON p_inner.booking_id = b_inner.booking_id WHERE b_inner.instance_id = %s AND p_inner.class_id = %s", 
-                (instance_id, p['class_id']), fetchone=True
+        booking_params = (
+            user_id,
+            instance_id,
+            pnr,
+            total_fare,
+            route['source_station_id'],
+            route['destination_station_id'],
+            route['departure_time'],
+            route['arrival_time'],
+            route['departure_date'],
+            route['arrival_date'],
+        )
+
+        if _is_sqlite(conn):
+            cur.execute(
+                _query(
+                    conn,
+                    """
+                    INSERT INTO bookings (
+                        user_id, instance_id, pnr, total_fare, status,
+                        source_station_id, destination_station_id,
+                        departure_time, arrival_time, departure_date, arrival_date
+                    )
+                    VALUES (%s, %s, %s, %s, 'CONFIRMED', %s, %s, %s, %s, %s, %s)
+                    """,
+                ),
+                booking_params,
             )
-            booked_count = booked_count_row['count']
-            
+            booking_id = cur.lastrowid
+        else:
+            cur.execute(
+                """
+                INSERT INTO bookings (
+                    user_id, instance_id, pnr, total_fare, status,
+                    source_station_id, destination_station_id,
+                    departure_time, arrival_time, departure_date, arrival_date
+                )
+                VALUES (%s, %s, %s, %s, 'CONFIRMED', %s, %s, %s, %s, %s, %s)
+                RETURNING booking_id
+                """,
+                booking_params,
+            )
+            booking_id = _as_dict(cur.fetchone())['booking_id']
+
+        for passenger in passengers:
+            class_id = passenger.get('class_id')
+            cur.execute(_query(conn, "SELECT class_id FROM train_classes WHERE class_id = %s"), (class_id,))
+            valid_class = _as_dict(cur.fetchone())
+            if not valid_class:
+                cur.execute(
+                    _query(
+                        conn,
+                        """
+                        SELECT class_id
+                        FROM train_classes
+                        WHERE class_code IN ('3A', 'SL')
+                        ORDER BY CASE WHEN class_code = '3A' THEN 0 ELSE 1 END
+                        LIMIT 1
+                        """,
+                    )
+                )
+                fallback_class = _as_dict(cur.fetchone())
+                if not fallback_class:
+                    raise ValueError("No train class is configured for booking")
+                class_id = fallback_class['class_id']
+
+            cur.execute(
+                _query(
+                    conn,
+                    "SELECT total_seats FROM train_seat_configurations WHERE train_id = %s AND class_id = %s",
+                ),
+                (train_instance['train_id'], class_id),
+            )
+            config = _as_dict(cur.fetchone())
+            total_seats = int(config['total_seats']) if config else 50
+
+            cur.execute(
+                _query(
+                    conn,
+                    """
+                    SELECT COUNT(*) AS count
+                    FROM passengers p_inner
+                    JOIN bookings b_inner ON p_inner.booking_id = b_inner.booking_id
+                    WHERE b_inner.instance_id = %s AND p_inner.class_id = %s
+                    """,
+                ),
+                (instance_id, class_id),
+            )
+            booked_count = int(_as_dict(cur.fetchone())['count'])
+
+            first_name = (passenger.get('first_name') or 'Unknown').strip()
+            last_name = (passenger.get('last_name') or '').strip()
+            age = int(passenger.get('age') or 25)
+            gender = passenger.get('gender') or 'Male'
+
             if booked_count >= total_seats:
-                # Set dynamic Waitlist Priority Number logic
-                wl_num = booked_count - total_seats + 1
-                execute_query(
-                    "INSERT INTO passengers (booking_id, first_name, last_name, age, gender, class_id, status, waiting_list_number) VALUES (%s, %s, %s, %s, %s, %s, 'WAITLISTED', %s)",
-                    (b_id, p['first_name'], p['last_name'], p['age'], p['gender'], p['class_id'], wl_num),
-                    commit=True
+                waitlist_number = booked_count - total_seats + 1
+                cur.execute(
+                    _query(
+                        conn,
+                        """
+                        INSERT INTO passengers (
+                            booking_id, first_name, last_name, age, gender, class_id,
+                            status, waiting_list_number
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, 'WAITLISTED', %s)
+                        """,
+                    ),
+                    (booking_id, first_name, last_name, age, gender, class_id, waitlist_number),
                 )
             else:
-                # Set solid seat mapping
-                execute_query(
-                    "INSERT INTO passengers (booking_id, first_name, last_name, age, gender, class_id, status, coach_number, seat_number) VALUES (%s, %s, %s, %s, %s, %s, 'CONFIRMED', %s, %s)",
-                    (b_id, p['first_name'], p['last_name'], p['age'], p['gender'], p['class_id'], "S"+str(random.randint(1,5)), booked_count + 1),
-                    commit=True
+                cur.execute(
+                    _query(
+                        conn,
+                        """
+                        INSERT INTO passengers (
+                            booking_id, first_name, last_name, age, gender, class_id,
+                            status, coach_number, seat_number
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, 'CONFIRMED', %s, %s)
+                        """,
+                    ),
+                    (
+                        booking_id,
+                        first_name,
+                        last_name,
+                        age,
+                        gender,
+                        class_id,
+                        "S" + str(random.randint(1, 5)),
+                        booked_count + 1,
+                    ),
                 )
 
+        conn.commit()
         return jsonify({"status": "success", "pnr": pnr, "message": "Booking successful"})
-    except Exception as e:
-        print(f"Booking error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    except Exception as exc:
+        conn.rollback()
+        print(f"Booking error: {exc}")
+        return jsonify({"status": "error", "message": str(exc)}), 500
+    finally:
+        conn.close()
+
 
 @booking_bp.route('/my-bookings', methods=['GET'])
 def my_bookings():
     if 'user_id' not in session:
         return jsonify({"status": "error", "message": "Login required"}), 401
-    
+
+    ensure_booking_route_columns()
     user_id = session['user_id']
-    query = """
-    SELECT b.*, t.train_name, t.train_number, ti.journey_date
-    FROM bookings b
-    JOIN train_instances ti ON b.instance_id = ti.instance_id
-    JOIN trains t ON ti.train_id = t.train_id
-    WHERE b.user_id = %s
-    ORDER BY b.booking_time DESC
-    """
-    bookings = execute_query(query, (user_id,), fetchall=True)
-    return jsonify([dict(b) for b in bookings])
+    bookings = execute_query(
+        _booking_lookup_query("WHERE b.user_id = %s ORDER BY b.booking_time DESC"),
+        (user_id,),
+        fetchall=True,
+    ) or []
+    return jsonify([_enrich_booking(booking) for booking in bookings])
+
 
 @booking_bp.route('/pnr/<pnr>', methods=['GET'])
 def get_pnr_status(pnr):
-    booking = execute_query(
-        """SELECT b.*, t.train_name, t.train_number, ti.journey_date, s1.station_name as from_station, s2.station_name as to_station
-           FROM bookings b 
-           JOIN train_instances ti ON b.instance_id = ti.instance_id 
-           JOIN trains t ON ti.train_id = t.train_id 
-           JOIN stations s1 ON t.source_station_id = s1.station_id
-           JOIN stations s2 ON t.destination_station_id = s2.station_id
-           WHERE b.pnr = %s""", 
-        (pnr,), fetchone=True
-    )
-    if not booking:
-        # Fallback: Web Scraper for live PNR not in our system
-        scraped_data = ScraperService.scrape_pnr_status(pnr)
-        if scraped_data.get("status") == "success":
-            return jsonify({
-                "status": "success",
-                "booking": {
-                    "pnr": scraped_data["pnr"],
-                    "train_name": scraped_data["train_name"],
-                    "from_station": scraped_data["from_station"],
-                    "to_station": scraped_data["to_station"],
-                    "journey_date": scraped_data["journey_date"]
-                },
-                "passengers": scraped_data["passengers"],
-                "live_scraped": True
-            })
-        return jsonify({"status": "error", "message": "PNR not found locally or via live tracking"}), 404
-    
-    passengers = execute_query(
-        "SELECT p.*, tc.class_code FROM passengers p JOIN train_classes tc ON p.class_id = tc.class_id WHERE p.booking_id = %s",
-        (booking['booking_id'],), fetchall=True
-    )
-    
-    return jsonify({
-        "status": "success",
-        "booking": dict(booking),
-        "passengers": [dict(p) for p in passengers]
-    })
+    payload = _get_booking_payload(pnr)
+    if not payload:
+        return jsonify({"status": "error", "message": "PNR not found in your local bookings"}), 404
+    return jsonify(payload)
+
 
 @booking_bp.route('/download-ticket/<pnr>', methods=['GET'])
 def download_ticket(pnr):
-    # Fetch data again for the PDF
-    status_resp = get_pnr_status(pnr)
-    if status_resp[1] != 200:
-        return status_resp
-    
-    data = status_resp[0].get_json()
-    booking = data['booking']
-    passengers = data['passengers']
-    
-    # Use /tmp on Vercel for writable filesystem
+    payload = _get_booking_payload(pnr)
+    if not payload:
+        return jsonify({"status": "error", "message": "Ticket PDF is available only for real local bookings"}), 404
+
     is_vercel = os.getenv('VERCEL') == '1'
     pdf_dir = "/tmp/tickets" if is_vercel else "static/tickets"
-    
     os.makedirs(pdf_dir, exist_ok=True)
-    pdf_path = f"{pdf_dir}/ticket_{pnr}.pdf"
-    
-    generate_ticket_pdf(booking, passengers, pdf_path)
-    
-    return send_file(pdf_path, as_attachment=True)
+
+    pdf_path = os.path.join(pdf_dir, f"ticket_{pnr}.pdf")
+    try:
+        generate_ticket_pdf(payload['booking'], payload['passengers'], pdf_path)
+    except Exception as exc:
+        print(f"Ticket PDF error: {exc}")
+        return jsonify({"status": "error", "message": "Could not generate ticket PDF"}), 500
+
+    return send_file(pdf_path, as_attachment=True, download_name=f"ticket_{pnr}.pdf")

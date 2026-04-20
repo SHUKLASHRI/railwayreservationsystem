@@ -2,9 +2,9 @@ import { state, t } from '../state.js';
 import { route } from '../router.js';
 
 export async function renderDashboard() {
-    if (!state.user) { 
-        route({preventDefault:()=>{}, target:{closest:()=>({pathname:'/'})}}); 
-        return; 
+    if (!state.user) {
+        route({preventDefault: () => {}, target: {closest: () => ({pathname: '/'})}});
+        return;
     }
 
     const app = document.getElementById('app');
@@ -27,17 +27,21 @@ export async function renderDashboard() {
         const historyDiv = document.getElementById('bookingHistory');
         if (!historyDiv) return;
 
-        if (data.length === 0) {
+        if (!Array.isArray(data) || data.length === 0) {
             historyDiv.innerHTML = `<p>${t('no_bookings')}</p>`;
             return;
         }
 
         historyDiv.innerHTML = data.map(b => `
-            <div class="soft-card" style="padding: 24px; display: flex; justify-content: space-between; align-items: center;">
+            <div class="soft-card" style="padding: 24px; display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap;">
                 <div>
-                    <span class="train-type">${b.status}</span>
-                    <div style="font-size: 1.2rem; font-weight: 800; margin: 8px 0; color: var(--primary);">${b.train_name}</div>
-                    <div style="color: var(--text-muted); font-size: 0.9rem;">#${b.train_number} · ${t('journey_date_label')}: ${b.journey_date}</div>
+                    <span class="train-type">${b.status || 'UNKNOWN'}</span>
+                    <div style="font-size: 1.2rem; font-weight: 800; margin: 8px 0; color: var(--primary);">${b.train_name || 'Train'}</div>
+                    <div style="color: var(--text-muted); font-size: 0.9rem;">#${b.train_number || 'N/A'} | ${b.from_station || 'From'} to ${b.to_station || 'To'}</div>
+                    <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 4px;">
+                        Start: ${b.date_of_start || b.departure_date || b.journey_date || 'N/A'} ${b.departure_time || ''}
+                        | Arrival: ${b.date_of_arrival || b.arrival_date || b.journey_date || 'N/A'} ${b.arrival_time || ''}
+                    </div>
                     <div style="margin-top: 10px; font-weight: 700; color: var(--accent);">PNR: ${b.pnr}</div>
                 </div>
                 <div>
@@ -46,6 +50,10 @@ export async function renderDashboard() {
             </div>
         `).join('');
     } catch (e) {
-        console.error("Dashboard error:", e);
+        const historyDiv = document.getElementById('bookingHistory');
+        if (historyDiv) {
+            historyDiv.innerHTML = '<p style="color: var(--danger);">Could not load bookings right now.</p>';
+        }
+        console.error('Dashboard error:', e);
     }
 }
