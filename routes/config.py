@@ -18,6 +18,6 @@ def get_config():
     return jsonify({
         "status": "success",
         "config": {
-            "googleClientId": current_app.config.get('GOOGLE_CLIENT_ID')
+            # Google Auth removed per user request
         }
     })

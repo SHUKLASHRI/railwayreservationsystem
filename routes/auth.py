@@ -1,7 +1,7 @@
 """
 FILE: routes/auth.py
 CONTENT: Authentication and Session Management
-EXPLANATION: Handles user registration, login, and Google OAuth flow. 
+EXPLANATION: Handles user registration, login, and session management. 
              It manages session tokens to keep users logged in.
 USE: Provides /login, /signup, and /logout endpoints.
 """
@@ -25,8 +25,14 @@ def register():
     password = data.get('password')
     email = data.get('email', f"{username}@aerorail.com")
 
-    if not username or not password:
-        return jsonify({"status": "error", "message": "Username and password required"}), 400
+    if not username or not password or not email:
+        return jsonify({"status": "error", "message": "Username, password and email required"}), 400
+
+    # Security: Block unauthorized use of government or official domains for random registrations
+    restricted_domains = ['gov.in', 'railway.gov.in', 'nic.in']
+    email_domain = email.split('@')[-1].lower()
+    if any(email_domain == d or email_domain.endswith('.' + d) for d in restricted_domains):
+        return jsonify({"status": "error", "message": "Official government domains are restricted for registration."}), 403
 
     hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode()
     
@@ -94,8 +100,3 @@ def get_me():
         })
     return jsonify({"status": "error", "message": "Not authenticated"}), 401
 
-@auth_bp.route('/google-login', methods=['POST'])
-def google_login():
-    # Simplified Google Auth logic for now
-    data = request.get_json()
-    return jsonify({"status": "success", "message": "Google auth coming soon"}), 200

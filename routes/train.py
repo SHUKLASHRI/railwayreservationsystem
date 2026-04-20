@@ -10,7 +10,6 @@ USE: Provides the backend endpoints for the tracking and home views.
 import sqlite3
 from flask import Blueprint, request, jsonify
 from database.db_connection import execute_query, get_connection
-from services.scraper_service import ScraperService
 from services.railradar_service import RailRadarService
 from extensions import cache, limiter
 import random
@@ -122,9 +121,8 @@ def search_stations():
     if results:
         return jsonify(results)
 
-    # Fallback: Scrape external sources if DB is empty
-    scraped_stations = ScraperService.scrape_station_search(query)
-    return jsonify(scraped_stations)
+    # No more scraper fallback for legal compliance
+    return jsonify([])
 
 @train_bp.route('/search_by_name', methods=['GET'])
 @limiter.limit("20 per minute")
@@ -305,11 +303,6 @@ def get_live_tracking(train_number):
         
         return jsonify({"status": "success", "data": formatted, "source": "railradar"})
 
-    # LEVEL 3: Scraper Fallback
-    status = ScraperService.scrape_live_train(train_number)
-    if status:
-        return jsonify({"status": "success", "data": status, "source": "scraper"})
-        
     return jsonify({"status": "error", "message": "Tracking unavailable"}), 404
 
 

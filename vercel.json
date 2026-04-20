@@ -2,19 +2,11 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/js/(.*)",
-      "destination": "/js/$1"
-    },
-    {
-      "source": "/static/(.*)",
-      "destination": "/static/$1"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "app.py"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!static/|js/|favicon.ico).*)$",
       "destination": "app.py"
     }
   ],

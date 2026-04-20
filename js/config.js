@@ -6,9 +6,7 @@
  *              without hardcoding them in the JS bundles.
  */
 
-export const CONFIG = {
-    googleClientId: null
-};
+export const CONFIG = {};
 
 export async function fetchRuntimeConfig() {
     try {
