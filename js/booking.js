@@ -2,12 +2,17 @@ import { state, t } from './state.js';
 import { showToast, showAuthModal } from './utils.js';
 
 export async function performSearch() {
-    const fromId = document.getElementById('fromId')?.value;
-    const toId = document.getElementById('toId')?.value;
+    let fromId = document.getElementById('fromId')?.value;
+    let toId = document.getElementById('toId')?.value;
+    const fromInput = document.getElementById('fromInput')?.value;
+    const toInput = document.getElementById('toInput')?.value;
     const date = document.getElementById('journeyDate')?.value;
 
+    if (!fromId && fromInput) fromId = fromInput;
+    if (!toId && toInput) toId = toInput;
+
     if (!fromId || !toId) {
-        showToast('Please select both stations', "error");
+        showToast('Please enter both stations', "error");
         return;
     }
 
