@@ -83,7 +83,9 @@ export function renderHome() {
                         <div class="field-group">
                             <label>${t('train_name_number')}</label>
                             <div class="input-wrapper">
-                                <input type="text" class="rounded-input" id="trainNameInput" placeholder="e.g., 12137"/>
+                                <input type="text" class="rounded-input" id="trainNameInput" placeholder="e.g., 12951" oninput="debouncedTrainSearch(this, 'trainSuggestions')"/>
+                                <div id="trainSuggestions" class="suggestions"></div>
+                                <input type="hidden" id="trainId" />
                             </div>
                         </div>
                         <div class="field-group">
@@ -95,9 +97,9 @@ export function renderHome() {
                         <div class="field-group">
                             <label>${t('boarding_station')}</label>
                             <div class="input-wrapper">
-                                <select class="rounded-input" id="boardingStation">
-                                    <option value="">Select Station</option>
-                                </select>
+                                <input type="text" id="boardingInput" class="rounded-input" placeholder="${t('enter_city_station')}" oninput="debouncedStationSearch(this, 'boardingSuggestions')"/>
+                                <div id="boardingSuggestions" class="suggestions"></div>
+                                <input type="hidden" id="boardingId" />
                             </div>
                         </div>
                         <button class="pill-btn pill-btn-primary" style="width: 100%; margin-top: 16px;" onclick="getTrainChart()">${t('get_train_chart')}</button>
@@ -126,6 +128,7 @@ export function switchBookingTab(e, tab) {
 }
 
 export const debouncedStationSearch = debounce(handleStationSearch, 300);
+export const debouncedTrainSearch = debounce(handleTrainSearch, 300);
 
 export async function handleStationSearch(input, suggestionsId) {
     const q = input.value.trim();
@@ -143,11 +146,46 @@ export async function handleStationSearch(input, suggestionsId) {
     box.classList.add('open');
 }
 
+export async function handleTrainSearch(input, suggestionsId) {
+    const q = input.value.trim();
+    const box = document.getElementById(suggestionsId);
+    if (q.length < 2) { box.classList.remove('open'); return; }
+
+    const resp = await fetch(`/api/train/search_by_name?q=${q}`);
+    const data = await resp.json();
+    
+    if(data.status === 'success' && data.trains) {
+        box.innerHTML = data.trains.map(t => `
+            <div class="suggestion-item" onclick="selectTrain('${t.train_number}', '${t.train_name}')">
+                <strong>${t.train_number}</strong> — ${t.train_name}
+            </div>
+        `).join('');
+        box.classList.add('open');
+    }
+}
+
+export function selectTrain(trainNo, trainName) {
+    document.getElementById('trainNameInput').value = `${trainNo} - ${trainName}`;
+    document.getElementById('trainId').value = trainNo;
+    document.getElementById('trainSuggestions').classList.remove('open');
+}
+
 export function selectStation(suggestionsId, name, codeOrId) {
-    const inputId = suggestionsId === 'fromSuggestions' ? 'fromInput' : 'toInput';
-    const hiddenId = suggestionsId === 'fromSuggestions' ? 'fromId' : 'toId';
-    document.getElementById(inputId).value = name;
-    document.getElementById(hiddenId).value = codeOrId;
+    let inputId = 'toInput';
+    let hiddenId = 'toId';
+    if (suggestionsId === 'fromSuggestions') {
+        inputId = 'fromInput';
+        hiddenId = 'fromId';
+    } else if (suggestionsId === 'boardingSuggestions') {
+        inputId = 'boardingInput';
+        hiddenId = 'boardingId';
+    }
+    
+    const inputEl = document.getElementById(inputId);
+    const hiddenEl = document.getElementById(hiddenId);
+    if(inputEl) inputEl.value = name;
+    if(hiddenEl) hiddenEl.value = codeOrId;
+    
     document.getElementById(suggestionsId).classList.remove('open');
 }
 
@@ -172,13 +210,47 @@ export function checkPNRFromHome() {
 }
 
 export function getTrainChart() {
-    showToast("Charts/Vacancy feature coming soon!", "info");
+    const trainInput = document.getElementById('trainNameInput')?.value || '12951';
+    const dateInput = document.getElementById('chartsDate')?.value || new Date().toISOString().split('T')[0];
+    
+    const resDiv = document.getElementById('searchResults');
+    if (!resDiv) return;
+
+    resDiv.innerHTML = `
+        <div style="padding: 20px; background: white; border-radius: var(--radius-lg); box-shadow: var(--shadow);">
+            <h3 style="color: var(--primary); margin-bottom: 15px;">Train Chart for ${trainInput} on ${dateInput}</h3>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Chart preparation completed. Here is the current vacancy status.</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div style="padding: 15px; border: 1px solid var(--border-light); border-radius: 8px;">
+                    <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">AC 3-Tier (3A)</div>
+                    <div style="color: var(--success); font-weight: 600;">AVAILABLE - 12 Seats</div>
+                </div>
+                <div style="padding: 15px; border: 1px solid var(--border-light); border-radius: 8px;">
+                    <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">AC 2-Tier (2A)</div>
+                    <div style="color: var(--success); font-weight: 600;">AVAILABLE - 4 Seats</div>
+                </div>
+                <div style="padding: 15px; border: 1px solid var(--border-light); border-radius: 8px;">
+                    <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">First Class AC (1A)</div>
+                    <div style="color: var(--danger); font-weight: 600;">WAITLIST - WL 5</div>
+                </div>
+                <div style="padding: 15px; border: 1px solid var(--border-light); border-radius: 8px;">
+                    <div style="font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">Sleeper (SL)</div>
+                    <div style="color: var(--danger); font-weight: 600;">RAC - 15</div>
+                </div>
+            </div>
+            <p style="margin-top: 20px; font-size: 0.9rem; color: var(--text-muted);">* This is simulated mock data.</p>
+        </div>
+    `;
+    
+    resDiv.scrollIntoView({ behavior: 'smooth' });
 }
 
 // Attach to window for HTML onclick handlers
 window.switchBookingTab = switchBookingTab;
 window.debouncedStationSearch = debouncedStationSearch;
+window.debouncedTrainSearch = debouncedTrainSearch;
 window.selectStation = selectStation;
+window.selectTrain = selectTrain;
 window.checkPNRFromHome = checkPNRFromHome;
 window.getTrainChart = getTrainChart;
 window.performSearch = performSearch;

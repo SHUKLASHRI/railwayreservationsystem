@@ -52,6 +52,21 @@ def search_stations():
     scraped_stations = ScraperService.scrape_station_search(query)
     return jsonify(scraped_stations)
 
+@train_bp.route('/search_by_name', methods=['GET'])
+@limiter.limit("20 per minute")
+def search_by_name():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return jsonify({"status": "success", "trains": []})
+
+    like_query = f"%{query}%"
+    trains = execute_query(
+        "SELECT train_id, train_number, train_name, train_type FROM trains WHERE train_number LIKE %s OR LOWER(train_name) LIKE LOWER(%s) LIMIT 10",
+        (like_query, like_query),
+        fetchall=True
+    )
+    return jsonify({"status": "success", "trains": [dict(t) for t in trains] if trains else []})
+
 @train_bp.route('/search', methods=['GET'])
 @limiter.limit("5 per minute") # Stricter limit for heavy search
 def search_trains():
@@ -87,12 +102,14 @@ def search_trains():
         FROM train_instances i
         JOIN trains t ON i.train_id = t.train_id
         JOIN train_schedules ts_src ON ts_src.train_id = t.train_id
-        JOIN stations s_src ON s_src.station_id = ts_src.station_id AND s_src.station_code = %s
+        JOIN stations s_src ON s_src.station_id = ts_src.station_id 
+            AND (s_src.station_code = %s OR LOWER(s_src.station_name) LIKE LOWER(%s))
         JOIN train_schedules ts_dst ON ts_dst.train_id = t.train_id
             AND ts_dst.stop_sequence > ts_src.stop_sequence
-        JOIN stations s_dst ON s_dst.station_id = ts_dst.station_id AND s_dst.station_code = %s
+        JOIN stations s_dst ON s_dst.station_id = ts_dst.station_id 
+            AND (s_dst.station_code = %s OR LOWER(s_dst.station_name) LIKE LOWER(%s))
         WHERE i.journey_date = %s
-    """, (source_code, dest_code, date), fetchall=True)
+    """, (source_code, f"%{source_code}%", dest_code, f"%{dest_code}%", date), fetchall=True)
 
     if local_trains:
         formatted_results = []

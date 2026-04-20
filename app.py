@@ -12,6 +12,7 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY", "railway_secret_key_99")
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
     app.config['CACHE_DEFAULT_TIMEOUT'] = 300
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
     # Initialize Extensions
     cache.init_app(app)
@@ -38,6 +39,13 @@ def create_app():
     @app.errorhandler(404)
     def not_found(e):
         return send_from_directory('.', 'index.html')
+
+    @app.after_request
+    def add_header(response):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '-1'
+        return response
 
     return app
 
