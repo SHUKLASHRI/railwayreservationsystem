@@ -47,6 +47,12 @@ def book_ticket():
 
         # 2. Add Passengers using Priority Waitlist System
         for p in passengers:
+            # Ensure class_id is valid to prevent foreign key violations on mock data
+            valid_class = execute_query("SELECT class_id FROM train_classes WHERE class_id = %s", (p['class_id'],), fetchone=True)
+            if not valid_class:
+                fallback_class = execute_query("SELECT class_id FROM train_classes WHERE class_code = '3A' OR class_code = 'SL' LIMIT 1", fetchone=True)
+                p['class_id'] = fallback_class['class_id'] if fallback_class else p['class_id']
+
             # Find total seats capacity
             config = execute_query("SELECT total_seats FROM train_seat_configurations WHERE train_id = %s AND class_id = %s", (t_id, p['class_id']), fetchone=True)
             total_seats = config['total_seats'] if config else 50

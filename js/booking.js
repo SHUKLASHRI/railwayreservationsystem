@@ -186,7 +186,7 @@ export async function startBooking(instanceId) {
                         <h4 style="margin-bottom: 15px; color: var(--primary);">Payment Gateway</h4>
                         <img src="/static/qr_code.png" alt="UPI QR Code" style="width: 150px; height: 150px; border-radius: 8px; border: 2px solid var(--border-light); margin-bottom: 15px;"/>
                         <div class="input-wrapper">
-                            <input type="text" id="upiIdInput" class="rounded-input" placeholder="Enter UPI Transaction ID" style="width: 100%;" required />
+                            <input type="text" id="upiIdInput" class="rounded-input" placeholder="Enter UPI Transaction ID (or type BYPASS)" style="width: 100%;" required />
                         </div>
                     </div>
                     <div style="text-align: right; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end;">
@@ -252,7 +252,7 @@ export async function confirmBooking(instanceId) {
 
     const upiInput = document.getElementById('upiIdInput')?.value.trim();
     if (!upiInput) {
-        showToast('Please enter your UPI Transaction ID to confirm payment.', 'error');
+        showToast('Please enter your UPI Transaction ID (or type BYPASS) to confirm payment.', 'error');
         return;
     }
 
