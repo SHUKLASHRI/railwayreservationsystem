@@ -3,6 +3,7 @@ import { renderHome } from './views/home.js';
 import { renderPNR } from './views/pnr.js';
 import { renderTracking } from './views/tracking.js';
 import { renderDashboard } from './views/dashboard.js';
+import { renderBookingConfirmation } from './views/confirmation.js';
 import { renderAdminLayout } from './views/admin.js';
 
 export function route(e) {
@@ -27,6 +28,9 @@ export function handleRouting() {
         renderTracking();
     } else if (path === '/dashboard') {
         renderDashboard();
+    } else if (path.startsWith('/booking-confirmed/')) {
+        const pnr = path.split('/').filter(Boolean)[1];
+        renderBookingConfirmation(pnr);
     } else if (path.startsWith('/admin')) {
         if (state.role !== 'admin') {
             window.history.pushState({}, '', '/');

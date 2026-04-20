@@ -45,7 +45,7 @@ export async function renderDashboard() {
                     <div style="margin-top: 10px; font-weight: 700; color: var(--accent);">PNR: ${b.pnr}</div>
                 </div>
                 <div>
-                    <a href="/api/booking/download-ticket/${b.pnr}" class="pill-btn" style="background: var(--primary); color: white; text-decoration: none;">${t('ticket_pdf')}</a>
+                    <a href="/booking-confirmed/${b.pnr}" onclick="route(event)" class="pill-btn" style="background: var(--primary); color: white; text-decoration: none;">View Details</a>
                 </div>
             </div>
         `).join('');

@@ -309,8 +309,8 @@ export async function confirmBooking(instanceId) {
         if (resp.ok && data.status === 'success') {
             showToast(`Booking Successful! PNR: ${data.pnr}`, 'success');
             document.getElementById('bookingModal').style.display = 'none';
-            window.history.pushState({}, '', '/dashboard');
-            state.currentPath = '/dashboard';
+            window.history.pushState({}, '', `/booking-confirmed/${data.pnr}`);
+            state.currentPath = `/booking-confirmed/${data.pnr}`;
             window.dispatchEvent(new Event('popstate'));
         } else {
             showToast(data.message || 'Booking failed. Please try again.', 'error');
