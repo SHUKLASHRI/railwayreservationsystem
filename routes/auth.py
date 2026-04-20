@@ -1,3 +1,11 @@
+"""
+FILE: routes/auth.py
+CONTENT: Authentication and Session Management
+EXPLANATION: Handles user registration, login, and Google OAuth flow. 
+             It manages session tokens to keep users logged in.
+USE: Provides /login, /signup, and /logout endpoints.
+"""
+
 import os
 import bcrypt
 from flask import Blueprint, request, jsonify, session
@@ -7,6 +15,11 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
+    """
+    USER REGISTRATION LOGIC
+    Explanation: Creates a new user account with a hashed password.
+    Use: POST /api/auth/register with {username, password, email}
+    """
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')

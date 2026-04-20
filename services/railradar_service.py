@@ -1,3 +1,12 @@
+"""
+FILE: services/railradar_service.py
+CONTENT: Official RailRadar API Integration
+EXPLANATION: This service acts as the bridge between AeroRail and the real-world 
+             Indian Railways data via the RailRadar API. It handles authentication 
+             and provides methods to fetch live train status.
+USE: Imported by 'routes/train.py' for real-time tracking.
+"""
+
 import requests
 import os
 from dotenv import load_dotenv
@@ -8,6 +17,10 @@ API_KEY = os.getenv("RAILRADAR_API_KEY")
 BASE_URL = os.getenv("RAILRADAR_BASE_URL", "https://api.railradar.org/api/v1")
 
 class RailRadarService:
+    """
+    RAILRADAR API WRAPPER
+    Explanation: Encapsulates the logic for communicating with the external RailRadar API.
+    """
     @staticmethod
     def _get_headers():
         return {

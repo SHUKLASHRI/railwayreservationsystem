@@ -1,58 +1,67 @@
-# Railway Reservation System
+# AeroRail — Smart Railway Reservation System
 
-This project is a prototype railway reservation system built using Python and Tkinter.
+AeroRail is a modern, premium Single-Page Application (SPA) designed to revolutionize the train booking experience. It features real-time live tracking, a unified booking engine, and support for over 22 Indian languages.
 
-## Features Planned
+---
 
-1. UI/UX using Tkinter
-2. Priority based seat allocation
-3. OTP verification system
-4. User management
-5. Train and schedule management
-6. Seat and berth allocation system
-7. Payment simulation
-8. Ticket generation with PNR
-9. Cancellation and refund system
-10. Waiting list system
-11. MySQL database backend
-12. Admin dashboard
-13. Error handling and security
+## 🚀 Features
 
-## System Architecture
+- **Live Train Tracking**: Real-time position tracking via the RailRadar API.
+- **Smart Booking Engine**: Automated seat allocation with intelligent waitlisting (Confirmed/WL).
+- **PNR Management**: Track and manage ticket status and download dynamic PDF tickets.
+- **Multilingual Support**: Inclusive UI supporting 22+ local Indian languages.
+- **User Dashboard**: Centralized view for booking history and profile management.
+- **Google Auth Integration**: Secure and seamless sign-in capability.
 
-The system follows a modular design:
+---
 
-UI Layer
-Logic Layer
-Database Layer
+## 🏗️ System Architecture
 
-### Priority System
+The project follows a **Modular Layered Architecture**:
 
-Seat allocation follows priority order:
+1.  **UI Layer (Frontend)**: Built with Vanilla JavaScript, HTML5, and Premium CSS. It functions as a Single-Page Application (SPA) for a "flight-like" smooth experience.
+2.  **Logic Layer (Backend)**: Powered by Python Flask, managing API routes, authentication, and service orchestration.
+3.  **Database Layer (Storage)**: Uses **Supabase (PostgreSQL)** for production stability, with a smart local **SQLite** fallback for offline development.
 
-PWD > Elderly Women > Elderly Men > Women > Children > Adult Men
+---
 
-Higher priority passengers receive lower berths.
+## 🛠️ Tech Stack
 
-## Tech Stack
+- **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3 (Custom Glassmorphism).
+- **Backend**: Python 3.9+, Flask.
+- **Database**: PostgreSQL (Supabase), SQLite (Development fallback).
+- **APIs**: RailRadar API (Live Status), Google Identity Services (Auth).
+- **Security**: Bcrypt (Password hashing), Flask-Limiter (Rate limiting).
+- **DevOps**: Vercel (Serverless Deployment).
 
-Python  
-Tkinter  
-MySQL  
-bcrypt  
-pyotp  
+---
 
-## Current Progress
+## 📊 Current Progress
 
-- Project structure created
-- Database schema designed
-- Database connection module implemented
-- Priority allocation logic implemented
-- Initial Tkinter login UI created
+- [x] **Core Engine**: Flask backend and SPA router implemented.
+- [x] **Database Phase**: Production Supabase integration complete.
+- [x] **Live Tracking**: RailRadar API integration functional.
+- [x] **Booking Logic**: Confirmed vs Waitlisting engine implemented.
+- [x] **Ticket Service**: Dynamic PDF generation with QR codes.
+- [x] **Multilingual**: High-fidelity i18n dictionary for 22 languages.
 
-## Next Steps
+---
 
-- Implement registration and OTP verification
-- Train search module
-- Seat allocation engine
-- Waiting list system
+## 🛤️ Next Steps (Production Hardening)
+
+- **Payment Gateway**: Integration with real payment providers (Razorpay/Stripe).
+- **OTP Verification**: Implementation of mobile/email OTP for security.
+- **Mobile App**: Porting the UI to Flutter for native mobile experience.
+
+---
+
+## 👨‍💻 Installation & Setup
+
+1. Clone the repository.
+2. Install dependencies: `pip install -r requirements.txt`.
+3. Set up `.env` with your Supabase and RailRadar credentials.
+4. Run locally: `python app.py`.
+
+---
+
+© 2026 AeroRail. Built with passion for Indian Railways.

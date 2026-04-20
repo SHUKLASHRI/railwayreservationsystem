@@ -1,6 +1,18 @@
+/**
+ * FILE: js/views/confirmation.js
+ * CONTENT: Booking Success View
+ * EXPLANATION: Shows the confirmed ticket details immediately after a successful 
+ *              reservation. It includes the PNR and a download link.
+ * USE: Automatically triggered after a successful /api/booking/book call.
+ */
+
 import { t } from '../state.js';
 
 function money(value) {
+    /**
+     * CURRENCY FORMATTER
+     * Explanation: Formats a number as Indian Rupees (INR) with commas.
+     */
     const amount = Number(value || 0);
     return `Rs. ${amount.toLocaleString('en-IN')}`;
 }

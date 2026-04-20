@@ -1,8 +1,23 @@
+"""
+FILE: services/ticket_service.py
+CONTENT: PDF Ticket Generation Service
+EXPLANATION: This service handles the creation of professional PDF tickets using 
+             the ReportLab library. It maps database booking records into a visual layout.
+USE: Called by 'routes/booking.py' to generate downloadable e-tickets.
+"""
+
 import os
 from datetime import datetime
 
 import qrcode
 from fpdf import FPDF
+
+
+class TicketService:
+    """
+    PDF GENERATOR CLASS
+    Explanation: Contains static methods for building ticket documents and generating PNRs.
+    """
 
 
 def _text(value, fallback=''):

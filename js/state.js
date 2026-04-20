@@ -1,5 +1,13 @@
-/* STATE & i18n */
+/**
+ * FILE: js/state.js
+ * CONTENT: Global State & Internationalization (i18n)
+ * EXPLANATION: This file maintains the 'single source of truth' for the frontend.
+ *              It stores the logged-in user, search results, and handles 
+ *              multi-language translations for 22+ Indian languages.
+ * USE: Imported by almost every frontend component for data and translation.
+ */
 
+/* SUPPORTED LANGUAGES LIST */
 export const SUPPORTED_LANGUAGES = [
     { code: 'en', name: 'English' },
     { code: 'as', name: 'অসমীয়া' },
@@ -432,7 +440,19 @@ export const state = {
     searchDate: new Date().toISOString().split('T')[0]
 };
 
+/**
+ * FILE: js/utils.js
+ * CONTENT: Utility Functions
+ * EXPLANATION: Contains helper functions for formatting, API calls, 
+ *              and internationalization (i18n).
+ */
+
 export function t(key) {
+    /**
+     * TRANSLATION HELPER (t)
+     * Explanation: Looks up a translation key in the current language pack.
+     *              Falls back to English if the translation is missing.
+     */
     return i18n[state.language] && i18n[state.language][key]
         ? i18n[state.language][key]
         : i18n.en[key] || key;

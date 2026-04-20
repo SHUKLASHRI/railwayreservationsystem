@@ -1,3 +1,11 @@
+"""
+FILE: routes/booking.py
+CONTENT: Ticket Reservation and PNR Management
+EXPLANATION: This module handles the complete lifecycle of a train booking, including
+             seat allocation (Confirmed/Waitlisted), PNR generation, and PDF ticket creation.
+USE: Provides endpoints for searching, creating, and retrieving user reservations.
+"""
+
 import os
 import random
 import sqlite3
@@ -11,12 +19,18 @@ from psycopg2.extras import RealDictCursor
 from database.db_connection import execute_query, get_connection
 from services.ticket_service import generate_ticket_pdf
 
+# Initialize Blueprint for booking-related requests
 booking_bp = Blueprint('booking', __name__)
 
+# STATE FLAG (Used to ensure DB schema is synchronized on startup)
 _BOOKING_ROUTE_COLUMNS_READY = False
 
-
 def generate_pnr():
+    """
+    PNR GENERATOR
+    Explanation: Creates a unique 10-digit numeric Passenger Name Record.
+    Use: Called during the ticket booking process.
+    """
     return ''.join(random.choices(string.digits, k=10))
 
 
@@ -298,6 +312,14 @@ def _get_booking_payload(pnr):
 
 @booking_bp.route('/book', methods=['POST'])
 def book_ticket():
+    """
+    TICKET RESERVATION ENGINE
+    Explanation: This is the most critical function for the reservation system.
+                 It validates the route, allocates seats, and handles Waitlisting.
+                 To prevent Race Conditions, all operations are wrapped in a 
+                 database transaction.
+    Use: POST /api/booking/book with instance_id and passenger list.
+    """
     if 'user_id' not in session:
         return jsonify({"status": "error", "message": "Login required"}), 401
 
@@ -490,6 +512,12 @@ def book_ticket():
                         booked_count + 1,
                     ),
                 )
+            # TRANSACTIONAL SAFETY:
+            # In a high-concurrency production system, we would use:
+            # 1. SELECT ... FOR UPDATE to lock the seat count.
+            # 2. An atomic counter in Redis.
+            # 3. DB Constraints to ensure count never exceeds total_seats.
+            # For this academic project, we use a single Transaction (commit at end).
 
         conn.commit()
         return jsonify({"status": "success", "pnr": pnr, "message": "Booking successful"})
@@ -503,6 +531,11 @@ def book_ticket():
 
 @booking_bp.route('/my-bookings', methods=['GET'])
 def my_bookings():
+    """
+    USER RESERVATION HISTORY
+    Explanation: Fetches all bookings made by the currently logged-in user.
+    Use: Called by the 'Dashboard' view.
+    """
     if 'user_id' not in session:
         return jsonify({"status": "error", "message": "Login required"}), 401
 
@@ -518,6 +551,11 @@ def my_bookings():
 
 @booking_bp.route('/pnr/<pnr>', methods=['GET'])
 def get_pnr_status(pnr):
+    """
+    PNR STATUS LOOKUP
+    Explanation: Retrieves the current status (Confirmed/Waitlisted) and coach details for a PNR.
+    Use: GET /api/booking/pnr/<pnr>
+    """
     payload = _get_booking_payload(pnr)
     if not payload:
         return jsonify({"status": "error", "message": "PNR not found in your local bookings"}), 404
@@ -526,6 +564,11 @@ def get_pnr_status(pnr):
 
 @booking_bp.route('/download-ticket/<pnr>', methods=['GET'])
 def download_ticket(pnr):
+    """
+    E-TICKET GENERATOR
+    Explanation: Triggers the TicketService to create a dynamic PDF ticket and serves it for download.
+    Use: GET /api/booking/download-ticket/<pnr>
+    """
     payload = _get_booking_payload(pnr)
     if not payload:
         return jsonify({"status": "error", "message": "Ticket PDF is available only for real local bookings"}), 404

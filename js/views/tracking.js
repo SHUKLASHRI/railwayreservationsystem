@@ -1,6 +1,26 @@
+/**
+ * FILE: js/views/tracking.js
+ * CONTENT: Real-Time Train Status UI
+ * EXPLANATION: Renders the tracking dashboard where users can input a train number 
+ *              to see its live location, delays, and upcoming stops.
+ * USE: Core 'Tracking' page of the app.
+ */
+
+/**
+ * FILE: js/views/home.js
+ * CONTENT: Hero Section and Train Search UI
+ * EXPLANATION: Renders the landing page where users can search for trains by source/destination.
+ *              It handles the station autocomplete and date selection logic.
+ * USE: Main landing page of the application.
+ */
+
 import { state, t } from '../state.js';
 
 export function renderTracking() {
+    /**
+     * TRACKING RENDERER
+     * Explanation: Sets up the search input for live tracking.
+     */
     const app = document.getElementById('app');
     if (!app) return;
     
@@ -28,6 +48,11 @@ export function renderTracking() {
 }
 
 export async function checkLiveStatus() {
+    /**
+     * LIVE TRACKING LOGIC
+     * Explanation: Fetches real-time status from the /api/train/live endpoint and 
+     *              dynamically updates the DOM with the results.
+     */
     const trainNum = document.getElementById('trackQuery')?.value.trim();
     if (!trainNum) return;
 

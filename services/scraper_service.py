@@ -1,7 +1,18 @@
 import requests
 from bs4 import BeautifulSoup
+"""
+FILE: services/scraper_service.py
+CONTENT: Web Scraping and Mock Data Fallback
+EXPLANATION: This service provides a secondary way to get train data by scraping public 
+             websites. It is used as a fallback when the primary API is unavailable.
+USE: Provides 'scrape_live_train' and 'scrape_station_search' methods.
+"""
 
 class ScraperService:
+    """
+    SCRAPER ENGINE
+    Explanation: Uses heuristic logic and external calls to simulate or scrape live train data.
+    """
     HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"

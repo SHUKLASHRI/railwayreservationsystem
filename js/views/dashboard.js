@@ -1,7 +1,27 @@
-import { state, t } from '../state.js';
-import { route } from '../router.js';
+/**
+ * FILE: js/views/dashboard.js
+ * CONTENT: User Profile and Booking History View
+ * EXPLANATION: Displays a summary of the user's past and upcoming train reservations.
+ *              It allows users to view ticket details and PNR status.
+ * USE: Rendered when a logged-in user clicks on 'My Bookings'.
+ */
 
+/**
+ * FILE: js/views/home.js
+ * CONTENT: Landing Page and Search Controller
+ * EXPLANATION: The main interface for the AeroRail app. It handles the 'From' 
+ *              and 'To' station search, date picker, and results display.
+ * USE: Default view of the application.
+ */
+
+import { state, t } from '../state.js';
+// ...
 export async function renderDashboard() {
+    /**
+     * DASHBOARD RENDERER
+     * Explanation: Fetches booking records from /api/booking/my-bookings and 
+     *              dynamically creates cards for each ticket.
+     */
     if (!state.user) {
         route({preventDefault: () => {}, target: {closest: () => ({pathname: '/'})}});
         return;

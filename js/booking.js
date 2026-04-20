@@ -293,6 +293,23 @@ export async function confirmBooking(instanceId) {
         return sum + Number(selected?.dataset?.fare || 0);
     }, 0);
 
+    const modalContent = document.getElementById('bookingModalContent');
+    const originalHtml = modalContent ? modalContent.innerHTML : '';
+    
+    if (modalContent) {
+        modalContent.innerHTML = `
+            <div style="padding: 60px 40px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px;">
+                <div class="skeleton" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 24px;"></div>
+                <h2 style="color: var(--primary); margin-bottom: 12px;">Processing Payment</h2>
+                <p style="color: var(--text-muted);">Securely authorizing your transaction with the bank...</p>
+                <div style="margin-top: 30px; font-size: 0.85rem; color: var(--text-muted); opacity: 0.7;">Simulating PCI-DSS compliant secure gateway</div>
+            </div>
+        `;
+    }
+
+    // Simulate Payment Gateway Delay (2 seconds)
+    await new Promise(resolve => setTimeout(resolve, 2200));
+
     try {
         const resp = await fetch('/api/booking/book', {
             method: 'POST',
@@ -313,9 +330,11 @@ export async function confirmBooking(instanceId) {
             state.currentPath = `/booking-confirmed/${data.pnr}`;
             window.dispatchEvent(new Event('popstate'));
         } else {
+            if (modalContent) modalContent.innerHTML = originalHtml;
             showToast(data.message || 'Booking failed. Please try again.', 'error');
         }
     } catch (err) {
+        if (modalContent) modalContent.innerHTML = originalHtml;
         showToast('Booking failed because the server could not be reached.', 'error');
     }
 }

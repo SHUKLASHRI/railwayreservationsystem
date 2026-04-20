@@ -1,10 +1,12 @@
+/**
+ * FILE: js/router.js
+ * CONTENT: Single-Page Application (SPA) Router
+ * EXPLANATION: Manages page transitions without full browser refreshes. It intercept 
+ *              link clicks and dynamically swaps the content of the main #app container.
+ * USE: Core navigation logic.
+ */
+
 import { state } from './state.js';
-import { renderHome } from './views/home.js';
-import { renderPNR } from './views/pnr.js';
-import { renderTracking } from './views/tracking.js';
-import { renderDashboard } from './views/dashboard.js';
-import { renderBookingConfirmation } from './views/confirmation.js';
-import { renderAdminLayout } from './views/admin.js';
 
 export function route(e) {
     if (e && e.preventDefault) e.preventDefault();
@@ -18,6 +20,10 @@ export function route(e) {
 }
 
 export function handleRouting() {
+    /**
+     * ROUTING HANDLER
+     * Explanation: Inspects the current URL path and calls the corresponding 'View' function.
+     */
     const path = state.currentPath;
 
     if (path === '/' || path === '/index.html') {

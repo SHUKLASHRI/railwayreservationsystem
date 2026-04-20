@@ -1,8 +1,18 @@
-import { state, t } from '../state.js';
-import { debounce, showToast, updateNavbarLanguageSelector } from '../utils.js';
-import { performSearch, selectClass, startBooking } from '../booking.js';
+/**
+ * FILE: js/views/home.js
+ * CONTENT: Hero Section and Train Search UI
+ * EXPLANATION: Renders the landing page where users can search for trains by source/destination.
+ *              It handles the station autocomplete and date selection logic.
+ * USE: Main landing page of the application.
+ */
 
+import { state, t } from '../state.js';
+// ...
 export function renderHome() {
+    /**
+     * HOME RENDERER
+     * Explanation: Builds the HTML for the primary search engine and hero banner.
+     */
     const app = document.getElementById('app');
     if (!app) return;
     
@@ -112,6 +122,10 @@ export function renderHome() {
 }
 
 export function switchBookingTab(e, tab) {
+    /**
+     * TAB SWITCHER
+     * Explanation: Toggles between 'Book Ticket', 'PNR Status', and 'Charts' tabs in the UI.
+     */
     if (e) e.preventDefault();
     document.querySelectorAll('.booking-tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.tab-underline').forEach(el => el.classList.remove('active'));

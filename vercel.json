@@ -10,10 +10,6 @@
       "destination": "/static/$1"
     },
     {
-      "source": "/style.css",
-      "destination": "/style.css"
-    },
-    {
       "source": "/api/(.*)",
       "destination": "app.py"
     },

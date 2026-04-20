@@ -1,6 +1,18 @@
-import { t } from '../state.js';
+/**
+ * FILE: js/views/pnr.js
+ * CONTENT: PNR Status Lookup UI
+ * EXPLANATION: Provides a specialized view for users to check the status of their 
+ *              10-digit Passenger Name Record (PNR) and download their ticket.
+ * USE: Linked from the Navigation marked as 'PNR Status'.
+ */
 
+import { t } from '../state.js';
+// ...
 export function renderPNR() {
+    /**
+     * PNR RENDERER
+     * Explanation: Builds the UI for entering and displaying PNR status.
+     */
     const app = document.getElementById('app');
     if (!app) return;
 
@@ -22,6 +34,11 @@ export function renderPNR() {
 }
 
 export async function checkPNR() {
+    /**
+     * PNR VALIDATION LOGIC
+     * Explanation: Sends the PNR to the backend and renders the ticket details 
+     *              if found, otherwise displays an error.
+     */
     const pnr = document.getElementById('pnrQuery')?.value.trim();
     if (!pnr) return;
 

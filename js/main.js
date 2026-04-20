@@ -9,6 +9,13 @@ import { checkAuth } from './auth.js';
 import { updateNavbarLanguageSelector } from './utils.js';
 
 // ── INIT ──
+/**
+ * FILE: js/main.js
+ * CONTENT: Frontend Entry Point
+ * EXPLANATION: Initializes the application, sets up global event listeners, 
+ *              and triggers the initial route loading.
+ * USE: Loaded by index.html to start the single-page application (SPA).
+ */
 document.addEventListener('DOMContentLoaded', async () => {
     const app = document.getElementById('app');
     document.documentElement.lang = state.language;
