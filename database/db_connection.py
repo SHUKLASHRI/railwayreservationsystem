@@ -44,23 +44,25 @@ def get_connection():
 
     # Priority 2: Single DATABASE_URL
     if not USE_SQLITE and DATABASE_URL:
-        url = DATABASE_URL.strip().strip('"').strip("'")
+        # Robust stripping of quotes and whitespace
+        url = DATABASE_URL.strip().replace('"', '').replace("'", "")
         if 'sslmode=' not in url:
             sep = '&' if '?' in url else '?'
             url += f"{sep}sslmode=require"
             
         try:
             conn = psycopg2.connect(url, connect_timeout=15)
+            # print("✅ Connected to Supabase PostgreSQL successfully")
             return conn
         except Exception as e:
             msg = f"PostgreSQL URL Connection failed: {str(e)}"
+            print(f"❌ {msg}")
             if is_vercel:
-                print(f"ERROR: {msg}")
                 raise e
-            print(msg)
     
     # Priority 3: Local SQLite Fallback
     if is_vercel:
+        print("❌ CRITICAL: No database configuration found on Vercel.")
         raise RuntimeError("No database configuration found on Vercel.")
 
     os.makedirs(os.path.dirname(SQLITE_DB), exist_ok=True)
