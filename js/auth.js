@@ -123,8 +123,9 @@ export async function checkAuth() {
 }
 
 export async function logout() {
-    await fetch('/api/auth/logout');
+    await fetch('/api/auth/logout', { method: 'POST' });
     state.user = null;
+    state.role = 'customer';
     window.location.href = '/';
 }
 

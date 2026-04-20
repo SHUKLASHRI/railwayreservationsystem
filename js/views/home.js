@@ -10,11 +10,6 @@ export function renderHome() {
     <section class="hero-section">
         <div class="hero-background"></div>
         <div class="container hero-content">
-            <div class="hero-text">
-                <div class="badge-hero">● ${t('live_status')}</div>
-                <h1>${t('smartest_way')}</h1>
-                <p>${t('book_track_pnr')}</p>
-            </div>
 
             <div class="floating-card soft-card booking-panel">
                 <div class="booking-tabs">

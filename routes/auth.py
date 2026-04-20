@@ -37,7 +37,7 @@ def login():
         return jsonify({"status": "error", "message": "Missing credentials"}), 400
 
     if username == 'admin' and password == 'admin123':
-        session['user_id'] = 0
+        session['user_id'] = 999
         session['username'] = 'admin'
         session['role'] = 'admin'
         return jsonify({"status": "success", "username": username, "role": "admin"}), 200
