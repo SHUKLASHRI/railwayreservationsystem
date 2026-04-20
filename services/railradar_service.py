@@ -11,20 +11,24 @@ class RailRadarService:
     @staticmethod
     def _get_headers():
         return {
-            "X-API-Key": API_KEY,
             "Accept": "application/json"
         }
 
     @staticmethod
+    def _build_url(endpoint, params=None):
+        if params is None:
+            params = {}
+        params['apiKey'] = API_KEY
+        
+        query_string = "&".join([f"{k}={v}" for k, v in params.items() if v is not None])
+        return f"{BASE_URL.strip()}/{endpoint.strip('/')}?{query_string}"
+
+    @staticmethod
     def search_stations(query):
-        """
-        Search for stations by name or code.
-        We'll use internal caching in routes for this to avoid circular imports.
-        """
-        url = f"{BASE_URL}/search/stations"
-        params = {"query": query}
+        """Search for stations by name or code."""
+        url = RailRadarService._build_url("search/stations", {"query": query})
         try:
-            response = requests.get(url, headers=RailRadarService._get_headers(), params=params, timeout=5)
+            response = requests.get(url, headers=RailRadarService._get_headers(), timeout=5)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -34,14 +38,13 @@ class RailRadarService:
     @staticmethod
     def get_trains_between(source_code, dest_code, date=None):
         """Get trains between two stations."""
-        url = f"{BASE_URL}/trains/between"
-        params = {
+        url = RailRadarService._build_url("trains/between", {
             "sourceStationCode": source_code,
             "destinationStationCode": dest_code,
             "date": date
-        }
+        })
         try:
-            response = requests.get(url, headers=RailRadarService._get_headers(), params=params, timeout=10)
+            response = requests.get(url, headers=RailRadarService._get_headers(), timeout=10)
             response.raise_for_status()
             data = response.json()
             if isinstance(data, list):
@@ -54,7 +57,7 @@ class RailRadarService:
     @staticmethod
     def get_train_schedule(train_number):
         """Get schedule for a specific train."""
-        url = f"{BASE_URL}/trains/{train_number}/schedule"
+        url = RailRadarService._build_url(f"trains/{train_number}")
         try:
             response = requests.get(url, headers=RailRadarService._get_headers(), timeout=5)
             response.raise_for_status()
@@ -66,17 +69,13 @@ class RailRadarService:
     @staticmethod
     def get_live_status(train_number):
         """Get live running status."""
-        # /api/v1/trains/{trainNumber}/live-status is the standard endpoint for real-time
-        url = f"{BASE_URL}/trains/{train_number}/live-status"
+        # Note: /api/v1/trains/{trainNumber} often returns both schedule and liveData
+        url = RailRadarService._build_url(f"trains/{train_number}")
         try:
             response = requests.get(url, headers=RailRadarService._get_headers(), timeout=10)
-            if response.status_code == 404:
-                # Fallback to instances if exact live status not available
-                url = f"{BASE_URL}/trains/{train_number}/instances"
-                response = requests.get(url, headers=RailRadarService._get_headers(), timeout=5)
-            
             response.raise_for_status()
             return response.json()
         except Exception as e:
             print(f"RailRadar Live Status Error: {e}")
             return None
+

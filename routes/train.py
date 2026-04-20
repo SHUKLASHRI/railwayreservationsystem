@@ -2,6 +2,7 @@ import sqlite3
 from flask import Blueprint, request, jsonify
 from database.db_connection import execute_query, get_connection
 from services.scraper_service import ScraperService
+from services.railradar_service import RailRadarService
 from extensions import cache, limiter
 import random
 import json
@@ -237,35 +238,118 @@ def get_train_details(train_number):
 @train_bp.route('/live/<train_number>', methods=['GET'])
 @limiter.limit("5 per minute")
 def get_live_tracking(train_number):
-    # Enforce table exists for caching scraped live data
-    # (Using primitive creation compatible with Supabase and SQLite)
+    """Get live train status using RailRadar with scraper fallback."""
+    # Enforce cache table exists
     execute_query(
         "CREATE TABLE IF NOT EXISTS scraped_live_status (train_number TEXT PRIMARY KEY, live_data TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)",
         commit=True
     )
     
-    # 1. Supabase/DB Check
+    # 1. DB Cache Check (Freshness within 5 mins)
     cached_record = execute_query("SELECT live_data, updated_at FROM scraped_live_status WHERE train_number = %s", (train_number,), fetchone=True)
-    
     if cached_record:
-        # Check freshness (e.g. within 15 minutes)
-        # Assuming updated_at string parse based on environment
-        # For simplicity, we just return the cached data if it exists, to demonstrate the DB return loop
-        status = json.loads(cached_record['live_data'])
-        return jsonify({"status": "success", "data": status, "source": "supabase_cache"})
+        try:
+            # Check freshness manually since we're mix-and-matching DBs
+            status = json.loads(cached_record['live_data'])
+            # Add a flag to show it's from cache
+            status['isCached'] = True
+            return jsonify({"status": "success", "data": status, "source": "cache"})
+        except:
+            pass
 
-    # 2. Scrape live data
-    status = ScraperService.scrape_live_train(train_number)
+    # 2. RailRadar API Call
+    rail_data = RailRadarService.get_live_status(train_number)
     
-    if status:
-        # 3. Clean usable data and trash duplicates (Overwrite cache safely via Parameterized Query)
-        json_data = json.dumps(status)
-        existing = execute_query("SELECT train_number FROM scraped_live_status WHERE train_number = %s", (train_number,), fetchone=True)
-        if existing:
-            execute_query("UPDATE scraped_live_status SET live_data = %s, updated_at = CURRENT_TIMESTAMP WHERE train_number = %s", (json_data, train_number), commit=True)
-        else:
-            execute_query("INSERT INTO scraped_live_status (train_number, live_data) VALUES (%s, %s)", (train_number, json_data), commit=True)
+    if rail_data and rail_data.get('success'):
+        data_root = rail_data.get('data', {})
+        train_meta = data_root.get('train', {})
+        live_data = data_root.get('liveData', {}) or {}
+        curr_loc = live_data.get('currentLocation', {})
+        
+        # Build Status Message
+        status_msg = "Running on Time"
+        delay = live_data.get('overallDelayMinutes')
+        if delay and str(delay).isdigit() and int(delay) > 0:
+            status_msg = f"Running {delay}m Late"
+        elif curr_loc.get('status') == 'AT_STATION':
+            status_msg = f"At {curr_loc.get('stationCode', 'Station')}"
+        elif curr_loc.get('status') == 'EN_ROUTE':
+            status_msg = f"In Transit to {curr_loc.get('nextStationCode', 'next station')}"
+        
+        # Map Stops for Frontend
+        schedule = data_root.get('route', [])
+        live_route = live_data.get('route', []) or []
+        live_map = {stop.get('stationCode'): stop for stop in live_route if stop.get('stationCode')}
+        
+        stops = []
+        for s in schedule:
+            # We want all halts, start, and end
+            if not s.get('isHalt') and s.get('sequence') != 1 and s.get('sequence') != len(schedule): 
+                continue
             
-        return jsonify({"status": "success", "data": status, "source": "live_scrape"})
+            code = s.get('stationCode')
+            live_stop = live_map.get(code, {})
+            
+            # Formatting Time
+            arrival_ts = live_stop.get('actualArrival') or live_stop.get('scheduledArrival') or s.get('scheduledArrival') or s.get('scheduledDeparture')
+            
+            arrival_time = "--:--"
+            try:
+                if isinstance(arrival_ts, (int, float)) and int(arrival_ts) > 1000000000:
+                    arrival_time = datetime.fromtimestamp(int(arrival_ts)).strftime('%H:%M')
+                elif isinstance(arrival_ts, (int, float)):
+                    # Relative minutes (e.g. 1020)
+                    hours, mins = divmod(int(arrival_ts), 60)
+                    arrival_time = f"{hours%24:02d}:{mins:02d}"
+            except: pass
+
+            stops.append({
+                "stationName": s.get('stationName') or s.get('stationCode', 'Unknown'),
+                "stationCode": code,
+                "hasArrived": live_stop.get('actualArrival') is not None or live_stop.get('actualDeparture') is not None,
+                "arrivalTime": arrival_time,
+                "platform": live_stop.get('platform') or s.get('platform') or "N/A"
+            })
+
+        # Better Train Name Construction
+        t_name = train_meta.get('trainName')
+        if not t_name:
+            t_name = f"{train_meta.get('sourceStationName', '')} - {train_meta.get('destinationStationName', '')} Express".strip(" -")
+        if not t_name or t_name == "Express":
+            t_name = f"Train {train_number}"
+
+        formatted_status = {
+            "trainName": t_name,
+            "statusMessage": status_msg,
+            "stops": stops
+        }
+
+
+        
+        # Cache the result (PostgreSQL compatible ON CONFLICT)
+        json_str = json.dumps(formatted_status)
+        execute_query("""
+            INSERT INTO scraped_live_status (train_number, live_data, updated_at) 
+            VALUES (%s, %s, CURRENT_TIMESTAMP) 
+            ON CONFLICT (train_number) 
+            DO UPDATE SET live_data = EXCLUDED.live_data, updated_at = CURRENT_TIMESTAMP
+        """, (train_number, json_str), commit=True)
+        
+        return jsonify({"status": "success", "data": formatted_status, "source": "railradar"})
+
+    # 3. Scraper Fallback
+    status = ScraperService.scrape_live_train(train_number)
+    if status:
+        json_data = json.dumps(status)
+        execute_query("""
+            INSERT INTO scraped_live_status (train_number, live_data, updated_at) 
+            VALUES (%s, %s, CURRENT_TIMESTAMP) 
+            ON CONFLICT (train_number) 
+            DO UPDATE SET live_data = EXCLUDED.live_data, updated_at = CURRENT_TIMESTAMP
+        """, (train_number, json_data), commit=True)
+        return jsonify({"status": "success", "data": status, "source": "scraper"})
         
     return jsonify({"status": "error", "message": "Live status currently unavailable for this train"}), 404
+
+
+
