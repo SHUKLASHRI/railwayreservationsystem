@@ -1,4 +1,4 @@
-import { state, t } from './state.js';
+import { SUPPORTED_LANGUAGES, state, t } from './state.js';
 
 export const showToast = (msg, type) => {
     const toast = document.getElementById('toast');
@@ -52,35 +52,50 @@ export function updateAuthModal() {
         descEl.textContent = t('register_modal_desc');
         labels[0].textContent = t('username');
         labels[1].textContent = t('password');
-        submitBtn.textContent = 'Create Account';
+        submitBtn.textContent = t('create_account');
         linkPara.innerHTML = `${t('already_have_account')} <a href="#" onclick="toggleAuthMode(event)" style="color: var(--accent); text-decoration: none; font-weight: 600;">${t('login_link')}</a>`;
     } else {
         titleEl.textContent = t('login_modal_title');
         descEl.textContent = t('login_modal_desc');
         labels[0].textContent = t('username');
         labels[1].textContent = t('password');
-        submitBtn.textContent = 'Continue';
+        submitBtn.textContent = t('continue');
         linkPara.innerHTML = `${t('dont_have_account')} <a href="#" onclick="toggleAuthMode(event)" style="color: var(--accent); text-decoration: none; font-weight: 600;">${t('register_link')}</a>`;
     }
 }
 
 export function updateNavbarLanguageSelector() {
+    const navHome = document.getElementById('navHome');
+    const navPNR = document.getElementById('navPNR');
+    const navTracking = document.getElementById('navTracking');
+    if (navHome) navHome.textContent = t('home');
+    if (navPNR) navPNR.textContent = t('pnr_status');
+    if (navTracking) navTracking.textContent = t('live_tracking');
+
     const selectors = document.querySelectorAll('.lang-selector');
     selectors.forEach((container) => {
+        const options = SUPPORTED_LANGUAGES.map(language => `
+            <option value="${language.code}" ${state.language === language.code ? 'selected' : ''}>${language.name}</option>
+        `).join('');
+
         container.innerHTML = `
-            <select class="rounded-input" onchange="setAppLanguage(this.value)" style="min-width: 120px; height: 40px; padding: 0 10px;">
-                <option value="en" ${state.language === 'en' ? 'selected' : ''}>English</option>
-                <option value="hi" ${state.language === 'hi' ? 'selected' : ''}>Hindi</option>
+            <select class="rounded-input" aria-label="${t('language')}" onchange="setAppLanguage(this.value)" style="min-width: 150px; height: 40px; padding: 0 10px;">
+                ${options}
             </select>
         `;
     });
 }
 
 export function setAppLanguage(lang) {
-    state.language = lang === 'hi' ? 'hi' : 'en';
+    const supported = SUPPORTED_LANGUAGES.some(language => language.code === lang);
+    state.language = supported ? lang : 'en';
     localStorage.setItem('aeroRailLanguage', state.language);
+    document.documentElement.lang = state.language;
     window.dispatchEvent(new Event('popstate'));
     window.dispatchEvent(new Event('navbar-update'));
+    window.dispatchEvent(new Event('language-changed'));
+    const authModal = document.getElementById('authModal');
+    if (authModal && authModal.style.display === 'flex') updateAuthModal();
 }
 
 // Global exposure

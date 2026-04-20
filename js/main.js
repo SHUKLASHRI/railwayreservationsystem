@@ -11,6 +11,7 @@ import { updateNavbarLanguageSelector } from './utils.js';
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
     const app = document.getElementById('app');
+    document.documentElement.lang = state.language;
     
     try {
         // 1. Initial State Sync
@@ -64,4 +65,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Keep both legacy and current event names for compatibility.
     window.addEventListener('navbar-update', updateNavbarLanguageSelector);
     window.addEventListener('navbar-updated', updateNavbarLanguageSelector);
+    window.addEventListener('language-changed', async () => {
+        await checkAuth();
+        updateNavbarLanguageSelector();
+    });
 });
