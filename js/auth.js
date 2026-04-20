@@ -1,5 +1,29 @@
 import { state, t } from './state.js';
 import { showToast, hideAuthModal, updateAuthModal, updateNavbarLanguageSelector } from './utils.js';
+import { CONFIG } from './config.js';
+
+export function initializeGoogleAuth() {
+    if (typeof google === 'undefined' || !google.accounts) {
+        // console.warn("Google API not yet loaded. Will retry on event.");
+        return;
+    }
+    
+    const clientId = CONFIG.googleClientId;
+    if (!clientId) {
+        // console.error("Google Client ID missing. Auth will be disabled.");
+        return;
+    }
+
+    google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleAuth
+    });
+
+    const btn = document.getElementById('googleAuthButton');
+    if (btn) {
+        google.accounts.id.renderButton(btn, { theme: 'outline', size: 'large', shape: 'pill', width: 340 });
+    }
+}
 
 export async function handleGoogleAuth(response) {
     try {
@@ -141,3 +165,13 @@ window.handleAuth = handleAuth;
 window.logout = logout;
 window.toggleAuthMode = toggleAuthMode;
 window.checkAuth = checkAuth;
+
+// Re-init when Google API loads
+window.addEventListener('google-api-loaded', initializeGoogleAuth);
+
+// Optional: If it's already there, init immediately
+if (document.readyState === 'complete') {
+    initializeGoogleAuth();
+} else {
+    window.addEventListener('load', initializeGoogleAuth);
+}

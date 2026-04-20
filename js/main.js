@@ -7,6 +7,7 @@ import { state } from './state.js';
 import { handleRouting } from './router.js';
 import { checkAuth } from './auth.js';
 import { updateNavbarLanguageSelector } from './utils.js';
+import { fetchRuntimeConfig } from './config.js';
 
 // ── INIT ──
 /**
@@ -21,6 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.documentElement.lang = state.language;
     
     try {
+        // 0. Runtime Config Sync
+        await fetchRuntimeConfig();
+
         // 1. Initial State Sync
         // We catch errors in checkAuth to prevent it from blocking the whole app
         try {
