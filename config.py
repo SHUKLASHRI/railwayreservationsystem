@@ -23,10 +23,7 @@ class Config:
     SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') != 'development'
     SESSION_COOKIE_SAMESITE = 'Lax'
     
-    # Database Connection Strings
     # Preference: Supabase PostgreSQL (Production)
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    
     # Feature Flags and API Integrations
     RAILRADAR_API_KEY = os.environ.get('RAILRADAR_API_KEY')
     CACHE_TYPE = "SimpleCache"
