@@ -4,65 +4,93 @@
    ════════════════════════════════════════════ */
 
 import { state } from './state.js';
-import { handleRouting } from './router.js';
-import { checkAuth } from './auth.js';
-import { updateNavbarLanguageSelector } from './utils.js';
+import { handleRouting, route } from './router.js';
+import { checkAuth, handleAuth, toggleAuthMode, handleModalBackdropClick, handleGoogleAuth, logout } from './auth.js';
+import { showAuthModal, hideAuthModal, updateAuthModal, showToast } from './utils.js';
+import { updateNavbarLanguageSelector, setAppLanguage } from './i18n.js';
 import { fetchRuntimeConfig } from './config.js';
+import { 
+    switchBookingTab, debouncedStationSearch, debouncedTrainSearch, 
+    selectStation, selectTrain, checkPNRFromHome, getTrainChart 
+} from './views/home.js';
+import { checkLiveStatus } from './views/tracking.js';
+import { renderPNR, checkPNR } from './views/pnr.js';
+import { 
+    performSearch, selectClass, startBooking, 
+    addPassengerField, updateTotalFare, confirmBooking 
+} from './booking.js';
+import { 
+    switchAdminTab, processAdminRefund, updateUserRole, updateUserStatus, 
+    saveUser, deleteTrain, deleteStation, deleteInstance, 
+    showTrainEditor, showStationEditor, showInstanceEditor, 
+    showConfigEditor, hideCustomAdminModal 
+} from './views/admin.js';
+import { money } from './utils.js';
+
+// ── GLOBAL EXPOSURE (FIX 1) ──
+window.route = route;
+window.handleRouting = handleRouting;
+window.checkAuth = checkAuth;
+window.handleAuth = handleAuth;
+window.toggleAuthMode = toggleAuthMode;
+window.handleModalBackdropClick = handleModalBackdropClick;
+window.handleGoogleAuth = handleGoogleAuth;
+window.logout = logout;
+window.showAuthModal = showAuthModal;
+window.hideAuthModal = hideAuthModal;
+window.updateAuthModal = updateAuthModal;
+window.showToast = showToast;
+window.setAppLanguage = setAppLanguage;
+window.updateNavbarLanguageSelector = updateNavbarLanguageSelector;
+window.checkLiveStatus = checkLiveStatus;
+window.checkPNR = checkPNR;
+window.switchBookingTab = switchBookingTab;
+window.debouncedStationSearch = debouncedStationSearch;
+window.debouncedTrainSearch = debouncedTrainSearch;
+window.selectStation = selectStation;
+window.selectTrain = selectTrain;
+window.checkPNRFromHome = checkPNRFromHome;
+window.getTrainChart = getTrainChart;
+window.performSearch = performSearch;
+window.selectClass = selectClass;
+window.startBooking = startBooking;
+window.addPassengerField = addPassengerField;
+window.updateTotalFare = updateTotalFare;
+window.confirmBooking = confirmBooking;
+window.switchAdminTab = switchAdminTab;
+window.processAdminRefund = processAdminRefund;
+window.updateUserRole = updateUserRole;
+window.updateUserStatus = updateUserStatus;
+window.saveUser = saveUser;
+window.deleteTrain = deleteTrain;
+window.deleteStation = deleteStation;
+window.deleteInstance = deleteInstance;
+window.showTrainEditor = showTrainEditor;
+window.showStationEditor = showStationEditor;
+window.showInstanceEditor = showInstanceEditor;
+window.showConfigEditor = showConfigEditor;
+window.hideCustomAdminModal = hideCustomAdminModal;
+window.money = money;
 
 // ── INIT ──
-/**
- * FILE: js/main.js
- * CONTENT: Frontend Entry Point
- * EXPLANATION: Initializes the application, sets up global event listeners, 
- *              and triggers the initial route loading.
- * USE: Loaded by index.html to start the single-page application (SPA).
- */
 document.addEventListener('DOMContentLoaded', async () => {
     const app = document.getElementById('app');
     document.documentElement.lang = state.language;
     
     try {
-        // 0. Runtime Config Sync
         await fetchRuntimeConfig();
-
-        // 1. Initial State Sync
-        // We catch errors in checkAuth to prevent it from blocking the whole app
         try {
             await checkAuth(); 
         } catch (e) {
             console.warn("Auth check failed, proceeding as guest:", e);
         }
-        
-        // 2. Initial Routing
         handleRouting();
     } catch (error) {
         console.error("Critical initialization failure:", error);
-        
-        // Final fallback: If the app hasn't rendered anything, show the maintenance screen
-        if (app && (!app.innerHTML || app.innerHTML.length < 50)) {
-            app.innerHTML = `
-                <div class="container" style="padding: 15vh 20px; text-align: center; color: white; background: #0d1117; min-height: 80vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                    <div style="font-size: 4rem; margin-bottom: 20px;">🚆</div>
-                    <h1 style="font-size: 2.5rem; margin-bottom: 10px; font-family: Syne, sans-serif;">System Restoration</h1>
-                    <p style="font-size: 1.2rem; max-width: 600px; opacity: 0.8; line-height: 1.6;">
-                        AeroRail is currently undergoing automated database synchronization. 
-                        We'll be back online in just a moment.
-                    </p>
-                    <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 30px; padding: 12px 30px;">
-                        Check Connection
-                    </button>
-                    <div style="margin-top: 40px; font-size: 0.8rem; opacity: 0.5;">
-                        Status: DB_CON_EXHAUSTION
-                    </div>
-                </div>
-            `;
-        }
     }
 
-    // 3. Navbar Sync
     updateNavbarLanguageSelector();
 
-    // 4. Global Event Listeners
     window.onpopstate = () => {
         state.currentPath = window.location.pathname;
         handleRouting();
@@ -73,7 +101,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (navbar) navbar.classList.toggle('scrolled', window.scrollY > 20);
     });
 
-    // Keep both legacy and current event names for compatibility.
     window.addEventListener('navbar-update', updateNavbarLanguageSelector);
     window.addEventListener('navbar-updated', updateNavbarLanguageSelector);
     window.addEventListener('language-changed', async () => {

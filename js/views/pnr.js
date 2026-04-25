@@ -99,4 +99,4 @@ export async function checkPNR() {
     }
 }
 
-window.checkPNR = checkPNR;
+// PNR functions exported for use in other modules

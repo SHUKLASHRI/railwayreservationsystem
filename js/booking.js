@@ -1,10 +1,6 @@
 import { state, t } from './state.js';
-import { showToast, showAuthModal } from './utils.js';
+import { showToast, showAuthModal, money } from './utils.js';
 
-function money(value) {
-    const amount = Number(value || 0);
-    return `Rs. ${amount.toLocaleString('en-IN')}`;
-}
 
 function classOptionsHtml() {
     const classes = state.selectedTrain?.classes?.length
@@ -339,9 +335,4 @@ export async function confirmBooking(instanceId) {
     }
 }
 
-window.addPassengerField = addPassengerField;
-window.confirmBooking = confirmBooking;
-window.selectClass = selectClass;
-window.performSearch = performSearch;
-window.startBooking = startBooking;
-window.updateTotalFare = updateTotalFare;
+// Handlers exposed via main.js or dynamically

@@ -680,6 +680,41 @@ select:focus {
   box-shadow: 0 8px 20px rgba(255, 122, 0, 0.3);
 }
 
+.pill-btn-google {
+  background: white;
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  gap: 10px;
+}
+
+.pill-btn-google:hover {
+  background: #f8f9fa;
+  border-color: var(--text-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.modal-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+  color: var(--text-light);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.modal-divider::before, .modal-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.modal-divider:not(:empty)::before { margin-right: 15px; }
+.modal-divider:not(:empty)::after { margin-left: 15px; }
+
 .rounded-input {
   width: 100%;
   padding: 12px 16px;

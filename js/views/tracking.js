@@ -99,5 +99,4 @@ export async function checkLiveStatus() {
     }
 }
 
-// Global exposure
-window.checkLiveStatus = checkLiveStatus;
+// Tracking functions exported for use in other modules

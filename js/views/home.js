@@ -7,7 +7,8 @@
  */
 
 import { state, t } from '../state.js';
-import { debounce, showToast, updateNavbarLanguageSelector } from '../utils.js';
+import { debounce, showToast } from '../utils.js';
+import { updateNavbarLanguageSelector } from '../i18n.js';
 import { performSearch, selectClass, startBooking } from '../booking.js';
 export function renderHome() {
     /**
@@ -255,14 +256,4 @@ export function getTrainChart() {
     resDiv.scrollIntoView({ behavior: 'smooth' });
 }
 
-// Attach to window for HTML onclick handlers
-window.switchBookingTab = switchBookingTab;
-window.debouncedStationSearch = debouncedStationSearch;
-window.debouncedTrainSearch = debouncedTrainSearch;
-window.selectStation = selectStation;
-window.selectTrain = selectTrain;
-window.checkPNRFromHome = checkPNRFromHome;
-window.getTrainChart = getTrainChart;
-window.performSearch = performSearch;
-window.selectClass = selectClass;
-window.startBooking = startBooking;
+// Handlers exposed via main.js or dynamically

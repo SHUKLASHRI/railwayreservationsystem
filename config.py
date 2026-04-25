@@ -17,14 +17,10 @@ class Config:
     Usage: Stores key-value pairs that Flask and its extensions use (e.g., SECRET_KEY).
     """
     # Flask Security Segment
-    SECRET_KEY = os.environ.get('FLASK_SECRET_KEY')
-    if not SECRET_KEY:
-        # Fails fast in production if the env var is missing.
-        # Developer must set this in their .env or environment settings.
-        SECRET_KEY = None 
-        
+    SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', 'railway_secret_key_99')
+    
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SECURE = True # Enforced for production HTTPS (Vercel default)
+    SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') != 'development'
     SESSION_COOKIE_SAMESITE = 'Lax'
     
     # Database Connection Strings

@@ -16,7 +16,7 @@ from decimal import Decimal
 from flask import Blueprint, jsonify, request, send_file, session
 from psycopg2.extras import RealDictCursor
 
-from database.db_connection import execute_query, get_connection
+from db import execute_query, get_connection
 from services.ticket_service import generate_ticket_pdf
 
 # Initialize Blueprint for booking-related requests

@@ -106,8 +106,15 @@ export function toggleAuthMode(e) {
     updateAuthModal();
 }
 
-// Global exposure
-window.handleAuth = handleAuth;
-window.logout = logout;
-window.toggleAuthMode = toggleAuthMode;
-window.checkAuth = checkAuth;
+export function handleModalBackdropClick(e) {
+    if (e.target.id === 'authModal') {
+        hideAuthModal();
+    }
+}
+
+export function handleGoogleAuth() {
+    showToast("Google Auth integration coming soon...", "info");
+    console.log("handleGoogleAuth triggered");
+}
+
+// Auth functions exported for use in other modules

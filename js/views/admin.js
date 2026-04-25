@@ -524,36 +524,36 @@ function renderInventoryTab(instances, configs, trains, classes) {
 // ── ADMIN HANDLERS ──
 
 let currentUserData = {};
-window.updateUserRole = (id, role) => currentUserData[id] = {...currentUserData[id], role};
-window.updateUserStatus = (id, status) => currentUserData[id] = {...currentUserData[id], account_status: status};
-window.saveUser = async (id) => {
+export const updateUserRole = (id, role) => currentUserData[id] = {...currentUserData[id], role};
+export const updateUserStatus = (id, status) => currentUserData[id] = {...currentUserData[id], account_status: status};
+export async function saveUser(id) {
     if (!currentUserData[id]) return;
     await adminApi.updateUser(id, currentUserData[id]);
     alert("User updated successfully");
-};
+}
 
-window.deleteTrain = async (id) => {
+export async function deleteTrain(id) {
     if (confirm("Delete this train? This will affect schedules.")) {
         await adminApi.deleteTrain(id);
         loadAdminTab('trains');
     }
-};
+}
 
-window.deleteStation = async (id) => {
+export async function deleteStation(id) {
     if (confirm("Delete this station?")) {
         await adminApi.deleteStation(id);
         loadAdminTab('stations');
     }
-};
+}
 
-window.deleteInstance = async (id) => {
+export async function deleteInstance(id) {
     if (confirm("Remove this instance? Bookings will be orphaned!")) {
         await adminApi.deleteTrainInstance(id);
         loadAdminTab('inventory');
     }
-};
+}
 
-window.showTrainEditor = (t = null) => {
+export function showTrainEditor(t = null) {
     const isEdit = !!t;
     const modalHtml = `
         <div style="padding: 30px;">
@@ -588,7 +588,7 @@ window.showTrainEditor = (t = null) => {
     });
 };
 
-window.showStationEditor = (s = null) => {
+export function showStationEditor(s = null) {
     const isEdit = !!s;
     const modalHtml = `
         <div style="padding: 30px;">
@@ -617,7 +617,7 @@ window.showStationEditor = (s = null) => {
     });
 };
 
-window.showInstanceEditor = () => {
+export function showInstanceEditor() {
     const trainOptions = (window._adminTrainList || []).map(t => `<option value="${t.train_id}">${t.train_number} - ${t.train_name}</option>`).join('');
     const modalHtml = `
         <div style="padding: 30px;">
@@ -646,7 +646,7 @@ window.showInstanceEditor = () => {
     });
 };
 
-window.showConfigEditor = () => {
+export function showConfigEditor() {
     const trainOptions = (window._adminTrainList || []).map(t => `<option value="${t.train_id}">${t.train_number}</option>`).join('');
     const classOptions = (window._adminClassList || []).map(c => `<option value="${c.class_id}">${c.class_name} (${c.class_code})</option>`).join('');
     const modalHtml = `
@@ -686,16 +686,16 @@ function showCustomAdminModal(html, submitHandler) {
     if (form) form.onsubmit = submitHandler;
 }
 
-window.hideCustomAdminModal = () => {
+export function hideCustomAdminModal() {
     document.getElementById('bookingModal').classList.remove('active');
-};
+}
 
-// Global exposure
-window.switchAdminTab = switchAdminTab;
-window.processAdminRefund = async (id) => {
+export async function processAdminRefund(id) {
     const res = await adminApi.processRefund(id);
     if (res.status === 'success') {
         alert("Refund processed successfully!");
         loadAdminTab('financials');
     }
-};
+}
+
+// Admin functions exported for use in other modules

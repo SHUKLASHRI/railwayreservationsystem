@@ -9,7 +9,7 @@ USE: Provides the backend endpoints for the tracking and home views.
 
 import sqlite3
 from flask import Blueprint, request, jsonify
-from database.db_connection import execute_query, get_connection
+from db import execute_query, get_connection
 from services.railradar_service import RailRadarService
 from extensions import cache, limiter
 import random
