@@ -1,6 +1,6 @@
 import os
 from flask import Blueprint, jsonify
-from db import get_connection
+from extensions import get_connection
 
 health_bp = Blueprint('health', __name__)
 

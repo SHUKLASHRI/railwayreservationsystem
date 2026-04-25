@@ -9,7 +9,7 @@ USE: Provides /login, /signup, and /logout endpoints.
 import os
 import bcrypt
 from flask import Blueprint, request, jsonify, session
-from db import execute_query
+from extensions import execute_query
 
 auth_bp = Blueprint('auth', __name__)
 

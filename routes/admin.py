@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, session
-from db import execute_query
+from extensions import execute_query
 from functools import wraps
 import json
 
