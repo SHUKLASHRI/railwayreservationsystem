@@ -1,5 +1,6 @@
 import { state, t } from './state.js';
-import { showToast, hideAuthModal, updateAuthModal, updateNavbarLanguageSelector } from './utils.js';
+import { showToast, hideAuthModal, updateAuthModal } from './utils.js';
+import { updateNavbarLanguageSelector } from './i18n.js';
 
 
 export async function handleAuth(e) {

@@ -7,15 +7,7 @@
  */
 
 import { t } from '../state.js';
-
-function money(value) {
-    /**
-     * CURRENCY FORMATTER
-     * Explanation: Formats a number as Indian Rupees (INR) with commas.
-     */
-    const amount = Number(value || 0);
-    return `Rs. ${amount.toLocaleString('en-IN')}`;
-}
+import { money } from '../utils.js';
 
 function detail(label, value) {
     return `
