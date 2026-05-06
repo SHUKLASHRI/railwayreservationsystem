@@ -1,37 +1,75 @@
+/**
+ * FILE: js/admin_api.js
+ * CONTENT: Admin API Interface
+ * EXPLANATION: Centralized API calls for the admin dashboard. 
+ * Refactored to use a reusable fetch helper to eliminate spaghetti code.
+ */
+
+class ApiClient {
+    /** 
+     * Reusable fetch method to eliminate duplicate fetch logic 
+     * Handles both GET and POST/PUT requests seamlessly.
+     */
+    static async request(endpoint, method = 'GET', body = null) {
+        const options = { method };
+        if (body) {
+            options.headers = { 'Content-Type': 'application/json' };
+            options.body = JSON.stringify(body);
+        }
+        const res = await fetch(`/api/admin/${endpoint}`, options);
+        return res.json();
+    }
+
+    /** 
+     * Dynamic CRUD generator to handle repeated 1-line differences.
+     * Generates get, create, update, delete methods automatically.
+     */
+    static crud(resource) {
+        return {
+            get: () => this.request(resource),
+            create: (data) => this.request(resource, 'POST', data),
+            update: (id, data) => this.request(`${resource}/${id}`, 'PUT', data),
+            delete: (id) => this.request(`${resource}/${id}`, 'DELETE')
+        };
+    }
+}
+
+// Generate standard endpoints dynamically
+const users = ApiClient.crud('users');
+const trains = ApiClient.crud('trains');
+const stations = ApiClient.crud('stations');
+const trainInstances = ApiClient.crud('train-instances');
+
 export const adminApi = {
-    getStats: () => fetch('/api/admin/stats').then(r => r.json()),
-    getUsers: () => fetch('/api/admin/users').then(r => r.json()),
-    updateUser: (id, data) => fetch(`/api/admin/users/${id}`, {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data)
-    }).then(r => r.json()),
-    
-    getTrains: () => fetch('/api/admin/trains').then(r => r.json()),
-    createTrain: (data) => fetch('/api/admin/trains', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }).then(r => r.json()),
-    updateTrain: (id, data) => fetch(`/api/admin/trains/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }).then(r => r.json()),
-    deleteTrain: (id) => fetch(`/api/admin/trains/${id}`, { method: 'DELETE' }).then(r => r.json()),
+    // Standard CRUD
+    getUsers: users.get,
+    updateUser: users.update,
 
-    getStations: () => fetch('/api/admin/stations').then(r => r.json()),
-    createStation: (data) => fetch('/api/admin/stations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }).then(r => r.json()),
-    updateStation: (id, data) => fetch(`/api/admin/stations/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }).then(r => r.json()),
-    deleteStation: (id) => fetch(`/api/admin/stations/${id}`, { method: 'DELETE' }).then(r => r.json()),
+    getTrains: trains.get,
+    createTrain: trains.create,
+    updateTrain: trains.update,
+    deleteTrain: trains.delete,
 
-    getPayments: () => fetch('/api/admin/payments').then(r => r.json()),
-    getRefunds: () => fetch('/api/admin/refunds').then(r => r.json()),
-    processRefund: (id) => fetch(`/api/admin/refunds/process/${id}`, { method: 'POST' }).then(r => r.json()),
-    
-    getLogs: () => fetch('/api/admin/logs').then(r => r.json()),
-    getLiveStatus: () => fetch('/api/admin/live-status').then(r => r.json()),
-    getPassengers: () => fetch('/api/admin/passengers').then(r => r.json()),
-    getBookings: () => fetch('/api/admin/bookings').then(r => r.json()),
+    getStations: stations.get,
+    createStation: stations.create,
+    updateStation: stations.update,
+    deleteStation: stations.delete,
 
-    getTrainInstances: () => fetch('/api/admin/train-instances').then(r => r.json()),
-    createTrainInstance: (data) => fetch('/api/admin/train-instances', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }).then(r => r.json()),
-    updateTrainInstance: (id, data) => fetch(`/api/admin/train-instances/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }).then(r => r.json()),
-    deleteTrainInstance: (id) => fetch(`/api/admin/train-instances/${id}`, { method: 'DELETE' }).then(r => r.json()),
+    getTrainInstances: trainInstances.get,
+    createTrainInstance: trainInstances.create,
+    updateTrainInstance: trainInstances.update,
+    deleteTrainInstance: trainInstances.delete,
 
-    getTrainClasses: () => fetch('/api/admin/train-classes').then(r => r.json()),
-    getSeatConfigs: () => fetch('/api/admin/seat-configs').then(r => r.json()),
-    saveSeatConfig: (data) => fetch('/api/admin/seat-configs', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) }).then(r => r.json())
+    // Specialized One-off Endpoints
+    getStats: () => ApiClient.request('stats'),
+    getPayments: () => ApiClient.request('payments'),
+    getRefunds: () => ApiClient.request('refunds'),
+    processRefund: (id) => ApiClient.request(`refunds/process/${id}`, 'POST'),
+    getLogs: () => ApiClient.request('logs'),
+    getLiveStatus: () => ApiClient.request('live-status'),
+    getPassengers: () => ApiClient.request('passengers'),
+    getBookings: () => ApiClient.request('bookings'),
+    getTrainClasses: () => ApiClient.request('train-classes'),
+    getSeatConfigs: () => ApiClient.request('seat-configs'),
+    saveSeatConfig: (data) => ApiClient.request('seat-configs', 'POST', data)
 };

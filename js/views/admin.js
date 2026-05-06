@@ -80,38 +80,28 @@ async function loadAdminTab(tab) {
     container.innerHTML = '<div class="skeleton" style="height: 600px; border-radius: 20px;"></div>';
     
     try {
-        if (tab === 'dashboard') {
-            const data = await adminApi.getStats();
-            renderDashboardStats(data.stats);
-        } else if (tab === 'users') {
-            const users = await adminApi.getUsers();
-            renderUsersTab(users);
-        } else if (tab === 'trains') {
-            const trains = await adminApi.getTrains();
-            renderTrainsTab(trains);
-        } else if (tab === 'stations') {
-            const stations = await adminApi.getStations();
-            renderStationsTab(stations);
-        } else if (tab === 'bookings') {
-            const bookings = await adminApi.getBookings();
-            renderBookingsTab(bookings);
-        } else if (tab === 'inventory') {
-            const instances = await adminApi.getTrainInstances();
-            const configs = await adminApi.getSeatConfigs();
-            const trains = await adminApi.getTrains();
-            const classes = await adminApi.getTrainClasses();
-            renderInventoryTab(instances, configs, trains, classes);
-        } else if (tab === 'financials') {
-            const payments = await adminApi.getPayments();
-            const refunds = await adminApi.getRefunds();
-            renderFinancialsTab(payments, refunds);
-        } else if (tab === 'passengers') {
-            const passengers = await adminApi.getPassengers();
-            renderPassengersTab(passengers);
-        } else if (tab === 'logs') {
-            const logs = await adminApi.getLogs();
-            const live = await adminApi.getLiveStatus();
-            renderLogsTab(logs, live);
+        // Use a routing dictionary instead of a massive 30-line if-else chain (DRY)
+        const tabRouters = {
+            dashboard: async () => renderDashboardStats((await adminApi.getStats()).stats),
+            users: async () => renderUsersTab(await adminApi.getUsers()),
+            trains: async () => renderTrainsTab(await adminApi.getTrains()),
+            stations: async () => renderStationsTab(await adminApi.getStations()),
+            bookings: async () => renderBookingsTab(await adminApi.getBookings()),
+            inventory: async () => renderInventoryTab(
+                await adminApi.getTrainInstances(),
+                await adminApi.getSeatConfigs(),
+                await adminApi.getTrains(),
+                await adminApi.getTrainClasses()
+            ),
+            financials: async () => renderFinancialsTab(await adminApi.getPayments(), await adminApi.getRefunds()),
+            passengers: async () => renderPassengersTab(await adminApi.getPassengers()),
+            logs: async () => renderLogsTab(await adminApi.getLogs(), await adminApi.getLiveStatus())
+        };
+
+        if (tabRouters[tab]) {
+            await tabRouters[tab]();
+        } else {
+            throw new Error("Unknown admin tab requested.");
         }
     } catch (err) {
         container.innerHTML = `<div class="soft-card" style="padding: 40px; text-align: center; color: var(--danger);">Failed to load admin data: ${err.message}</div>`;
@@ -532,148 +522,146 @@ export async function saveUser(id) {
     alert("User updated successfully");
 }
 
-export async function deleteTrain(id) {
-    if (confirm("Delete this train? This will affect schedules.")) {
-        await adminApi.deleteTrain(id);
-        loadAdminTab('trains');
+/**
+ * ── ADMIN MODAL MANAGER ──
+ * This class abstracts the repetitive logic of creating, showing, and submitting
+ * admin forms, replacing 4 different functions that did the exact same thing.
+ */
+class AdminEditor {
+    static show(title, fieldsHtml, onSubmit) {
+        const modalHtml = `
+            <div style="padding: 30px;">
+                <h3>${title}</h3>
+                <form id="genericAdminForm" style="display: grid; gap: 15px; margin-top: 20px;">
+                    ${fieldsHtml}
+                    <button type="submit" class="pill-btn pill-btn-primary">Save</button>
+                </form>
+            </div>
+        `;
+        showCustomAdminModal(modalHtml, async (e) => {
+            e.preventDefault();
+            await onSubmit();
+            hideCustomAdminModal();
+        });
     }
 }
 
-export async function deleteStation(id) {
-    if (confirm("Delete this station?")) {
-        await adminApi.deleteStation(id);
-        loadAdminTab('stations');
+/**
+ * ── ADMIN DELETE HANDLER ──
+ * Generic deletion handler to prevent rewriting confirm() logic over and over.
+ */
+async function handleDeletion(id, typeMsg, apiMethod, tabToReload) {
+    if (confirm(`Delete this ${typeMsg}?`)) {
+        await apiMethod(id);
+        loadAdminTab(tabToReload);
     }
 }
 
-export async function deleteInstance(id) {
-    if (confirm("Remove this instance? Bookings will be orphaned!")) {
-        await adminApi.deleteTrainInstance(id);
-        loadAdminTab('inventory');
-    }
-}
+export const deleteTrain = (id) => handleDeletion(id, "train? This will affect schedules", adminApi.deleteTrain, 'trains');
+export const deleteStation = (id) => handleDeletion(id, "station", adminApi.deleteStation, 'stations');
+export const deleteInstance = (id) => handleDeletion(id, "instance? Bookings will be orphaned!", adminApi.deleteTrainInstance, 'inventory');
+
+// ── EDITOR SPAWNERS ──
 
 export function showTrainEditor(t = null) {
     const isEdit = !!t;
-    const modalHtml = `
-        <div style="padding: 30px;">
-            <h3>${isEdit ? 'Edit Train' : 'Create Train'}</h3>
-            <form id="trainEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
-                <input type="text" id="editTrainNo" placeholder="Train Number" value="${t?.train_number || ''}" required class="rounded-input">
-                <input type="text" id="editTrainName" placeholder="Train Name" value="${t?.train_name || ''}" required class="rounded-input">
-                <select id="editTrainType" class="rounded-input">
-                    <option value="Superfast" ${t?.train_type === 'Superfast' ? 'selected' : ''}>Superfast</option>
-                    <option value="Express" ${t?.train_type === 'Express' ? 'selected' : ''}>Express</option>
-                    <option value="Vande Bharat" ${t?.train_type === 'Vande Bharat' ? 'selected' : ''}>Vande Bharat</option>
-                </select>
-                <input type="number" id="editSrcId" placeholder="Source Station ID" value="${t?.source_station_id || ''}" required class="rounded-input">
-                <input type="number" id="editDstId" placeholder="Dest Station ID" value="${t?.destination_station_id || ''}" required class="rounded-input">
-                <button type="submit" class="pill-btn pill-btn-primary">Save Train</button>
-            </form>
-        </div>
-    `;
-    showCustomAdminModal(modalHtml, async (e) => {
-        e.preventDefault();
-        const data = {
-            train_number: document.getElementById('editTrainNo').value,
-            train_name: document.getElementById('editTrainName').value,
-            train_type: document.getElementById('editTrainType').value,
-            source_station_id: parseInt(document.getElementById('editSrcId').value),
-            destination_station_id: parseInt(document.getElementById('editDstId').value)
-        };
-        if (isEdit) await adminApi.updateTrain(t.train_id, data);
-        else await adminApi.createTrain(data);
-        hideCustomAdminModal();
-        loadAdminTab('trains');
-    });
-};
+    AdminEditor.show(
+        isEdit ? 'Edit Train' : 'Create Train',
+        `
+            <input type="text" id="editTrainNo" placeholder="Train Number" value="${t?.train_number || ''}" required class="rounded-input">
+            <input type="text" id="editTrainName" placeholder="Train Name" value="${t?.train_name || ''}" required class="rounded-input">
+            <select id="editTrainType" class="rounded-input">
+                <option value="Superfast" ${t?.train_type === 'Superfast' ? 'selected' : ''}>Superfast</option>
+                <option value="Express" ${t?.train_type === 'Express' ? 'selected' : ''}>Express</option>
+                <option value="Vande Bharat" ${t?.train_type === 'Vande Bharat' ? 'selected' : ''}>Vande Bharat</option>
+            </select>
+            <input type="number" id="editSrcId" placeholder="Source Station ID" value="${t?.source_station_id || ''}" required class="rounded-input">
+            <input type="number" id="editDstId" placeholder="Dest Station ID" value="${t?.destination_station_id || ''}" required class="rounded-input">
+        `,
+        async () => {
+            const data = {
+                train_number: document.getElementById('editTrainNo').value,
+                train_name: document.getElementById('editTrainName').value,
+                train_type: document.getElementById('editTrainType').value,
+                source_station_id: parseInt(document.getElementById('editSrcId').value),
+                destination_station_id: parseInt(document.getElementById('editDstId').value)
+            };
+            if (isEdit) await adminApi.updateTrain(t.train_id, data);
+            else await adminApi.createTrain(data);
+            loadAdminTab('trains');
+        }
+    );
+}
 
 export function showStationEditor(s = null) {
     const isEdit = !!s;
-    const modalHtml = `
-        <div style="padding: 30px;">
-            <h3>${isEdit ? 'Edit Station' : 'Add Station'}</h3>
-            <form id="stationEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
-                <input type="text" id="editStaCode" placeholder="Station Code (e.g. NDLS)" value="${s?.station_code || ''}" required class="rounded-input">
-                <input type="text" id="editStaName" placeholder="Station Name" value="${s?.station_name || ''}" required class="rounded-input">
-                <input type="text" id="editCity" placeholder="City" value="${s?.city || ''}" required class="rounded-input">
-                <input type="text" id="editState" placeholder="State" value="${s?.state || ''}" required class="rounded-input">
-                <button type="submit" class="pill-btn pill-btn-primary">Save Station</button>
-            </form>
-        </div>
-    `;
-    showCustomAdminModal(modalHtml, async (e) => {
-        e.preventDefault();
-        const data = {
-            station_code: document.getElementById('editStaCode').value,
-            station_name: document.getElementById('editStaName').value,
-            city: document.getElementById('editCity').value,
-            state: document.getElementById('editState').value
-        };
-        if (isEdit) await adminApi.updateStation(s.station_id, data);
-        else await adminApi.createStation(data);
-        hideCustomAdminModal();
-        loadAdminTab('stations');
-    });
-};
+    AdminEditor.show(
+        isEdit ? 'Edit Station' : 'Add Station',
+        `
+            <input type="text" id="editStaCode" placeholder="Station Code (e.g. NDLS)" value="${s?.station_code || ''}" required class="rounded-input">
+            <input type="text" id="editStaName" placeholder="Station Name" value="${s?.station_name || ''}" required class="rounded-input">
+            <input type="text" id="editCity" placeholder="City" value="${s?.city || ''}" required class="rounded-input">
+            <input type="text" id="editState" placeholder="State" value="${s?.state || ''}" required class="rounded-input">
+        `,
+        async () => {
+            const data = {
+                station_code: document.getElementById('editStaCode').value,
+                station_name: document.getElementById('editStaName').value,
+                city: document.getElementById('editCity').value,
+                state: document.getElementById('editState').value
+            };
+            if (isEdit) await adminApi.updateStation(s.station_id, data);
+            else await adminApi.createStation(data);
+            loadAdminTab('stations');
+        }
+    );
+}
 
 export function showInstanceEditor() {
-    const trainOptions = (window._adminTrainList || []).map(t => `<option value="${t.train_id}">${t.train_number} - ${t.train_name}</option>`).join('');
-    const modalHtml = `
-        <div style="padding: 30px;">
-            <h3>Create Train Instance</h3>
-            <form id="instanceEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
-                <select id="instTrainId" class="rounded-input">${trainOptions}</select>
-                <input type="date" id="instDate" required class="rounded-input">
-                <select id="instStatus" class="rounded-input">
-                    <option value="ON_TIME">On Time</option>
-                    <option value="DELAYED">Delayed</option>
-                </select>
-                <button type="submit" class="pill-btn pill-btn-primary">Create Instance</button>
-            </form>
-        </div>
-    `;
-    showCustomAdminModal(modalHtml, async (e) => {
-        e.preventDefault();
-        const data = {
-            train_id: parseInt(document.getElementById('instTrainId').value),
-            journey_date: document.getElementById('instDate').value,
-            status: document.getElementById('instStatus').value
-        };
-        await adminApi.createTrainInstance(data);
-        hideCustomAdminModal();
-        loadAdminTab('inventory');
-    });
-};
+    const trainOptions = (window._adminTrainList || []).map(t => \`<option value="\${t.train_id}">\${t.train_number} - \${t.train_name}</option>\`).join('');
+    AdminEditor.show(
+        'Create Train Instance',
+        `
+            <select id="instTrainId" class="rounded-input">${trainOptions}</select>
+            <input type="date" id="instDate" required class="rounded-input">
+            <select id="instStatus" class="rounded-input">
+                <option value="ON_TIME">On Time</option>
+                <option value="DELAYED">Delayed</option>
+            </select>
+        `,
+        async () => {
+            await adminApi.createTrainInstance({
+                train_id: parseInt(document.getElementById('instTrainId').value),
+                journey_date: document.getElementById('instDate').value,
+                status: document.getElementById('instStatus').value
+            });
+            loadAdminTab('inventory');
+        }
+    );
+}
 
 export function showConfigEditor() {
-    const trainOptions = (window._adminTrainList || []).map(t => `<option value="${t.train_id}">${t.train_number}</option>`).join('');
-    const classOptions = (window._adminClassList || []).map(c => `<option value="${c.class_id}">${c.class_name} (${c.class_code})</option>`).join('');
-    const modalHtml = `
-        <div style="padding: 30px;">
-            <h3>Manage Seat Config</h3>
-            <form id="configEditorForm" style="display: grid; gap: 15px; margin-top: 20px;">
-                <label>Select Train</label><select id="cfgTrainId" class="rounded-input">${trainOptions}</select>
-                <label>Select Class</label><select id="cfgClassId" class="rounded-input">${classOptions}</select>
-                <label>Total Seats</label><input type="number" id="cfgSeats" placeholder="Seats (e.g. 50)" required class="rounded-input">
-                <label>Base Fare</label><input type="number" id="cfgFare" placeholder="Fare (e.g. 1200)" required class="rounded-input">
-                <button type="submit" class="pill-btn pill-btn-primary">Save Config</button>
-            </form>
-        </div>
-    `;
-    showCustomAdminModal(modalHtml, async (e) => {
-        e.preventDefault();
-        const data = {
-            train_id: parseInt(document.getElementById('cfgTrainId').value),
-            class_id: parseInt(document.getElementById('cfgClassId').value),
-            total_seats: parseInt(document.getElementById('cfgSeats').value),
-            base_fare: parseFloat(document.getElementById('cfgFare').value)
-        };
-        await adminApi.saveSeatConfig(data);
-        hideCustomAdminModal();
-        loadAdminTab('inventory');
-    });
-};
+    const trainOptions = (window._adminTrainList || []).map(t => \`<option value="\${t.train_id}">\${t.train_number}</option>\`).join('');
+    const classOptions = (window._adminClassList || []).map(c => \`<option value="\${c.class_id}">\${c.class_name} (\${c.class_code})</option>\`).join('');
+    AdminEditor.show(
+        'Manage Seat Config',
+        `
+            <label>Select Train</label><select id="cfgTrainId" class="rounded-input">${trainOptions}</select>
+            <label>Select Class</label><select id="cfgClassId" class="rounded-input">${classOptions}</select>
+            <label>Total Seats</label><input type="number" id="cfgSeats" placeholder="Seats (e.g. 50)" required class="rounded-input">
+            <label>Base Fare</label><input type="number" id="cfgFare" placeholder="Fare (e.g. 1200)" required class="rounded-input">
+        `,
+        async () => {
+            await adminApi.saveSeatConfig({
+                train_id: parseInt(document.getElementById('cfgTrainId').value),
+                class_id: parseInt(document.getElementById('cfgClassId').value),
+                total_seats: parseInt(document.getElementById('cfgSeats').value),
+                base_fare: parseFloat(document.getElementById('cfgFare').value)
+            });
+            loadAdminTab('inventory');
+        }
+    );
+}
 
 // Simple Modal Helper for Admin
 function showCustomAdminModal(html, submitHandler) {

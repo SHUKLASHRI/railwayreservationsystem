@@ -25,6 +25,36 @@ function routePayload() {
     };
 }
 
+/**
+ * ── PASSENGER FORM GENERATOR ──
+ * Instead of copy-pasting this massive HTML block every time someone 
+ * clicks "Add Passenger", we define it once here. DRY principle!
+ */
+function generatePassengerFormHtml() {
+    return `
+        <div class="passenger-form" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr 1.5fr; gap: 15px; margin-bottom: 20px;">
+            <input type="text" class="p-name rounded-input" placeholder="Full Name" />
+            <input type="number" class="p-age rounded-input" placeholder="Age" />
+            <select class="p-gender rounded-input">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
+            <select class="p-class rounded-input" onchange="updateTotalFare()">
+                ${classOptionsHtml()}
+            </select>
+            <select class="p-seat rounded-input">
+                <option value="No Preference">No Preference</option>
+                <option value="Lower">Lower</option>
+                <option value="Middle">Middle</option>
+                <option value="Upper">Upper</option>
+                <option value="Side Lower">Side Lower</option>
+                <option value="Side Upper">Side Upper</option>
+            </select>
+        </div>
+    `;
+}
+
 export async function performSearch() {
     let fromId = document.getElementById('fromId')?.value;
     let toId = document.getElementById('toId')?.value;
@@ -181,26 +211,7 @@ export async function startBooking(instanceId) {
             <h2 style="color: var(--primary);">${t('passenger_details')}</h2>
             <p style="color: var(--text-muted); margin-bottom: 30px;">Enter details for all travelers.</p>
             <div id="passengerList">
-                <div class="passenger-form" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr 1.5fr; gap: 15px; margin-bottom: 20px;">
-                    <input type="text" class="p-name rounded-input" placeholder="Full Name" />
-                    <input type="number" class="p-age rounded-input" placeholder="Age" />
-                    <select class="p-gender rounded-input">
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                    </select>
-                    <select class="p-class rounded-input" onchange="updateTotalFare()">
-                        ${classOptionsHtml()}
-                    </select>
-                    <select class="p-seat rounded-input">
-                        <option value="No Preference">No Preference</option>
-                        <option value="Lower">Lower</option>
-                        <option value="Middle">Middle</option>
-                        <option value="Upper">Upper</option>
-                        <option value="Side Lower">Side Lower</option>
-                        <option value="Side Upper">Side Upper</option>
-                    </select>
-                </div>
+                ${generatePassengerFormHtml()}
             </div>
             <button class="btn" style="margin-bottom: 30px; background: var(--border-light); color: var(--text-main);" onclick="addPassengerField()">+ Add Another Passenger</button>
             <div style="border-top: 1px solid var(--border); padding-top: 30px; margin-top: 20px;">
@@ -227,29 +238,9 @@ export async function startBooking(instanceId) {
 
 export function addPassengerField() {
     const div = document.createElement('div');
-    div.className = 'passenger-form';
-    div.style = 'display: grid; grid-template-columns: 2fr 1fr 1fr 1.2fr 1.5fr; gap: 15px; margin-bottom: 20px;';
-    div.innerHTML = `
-        <input type="text" class="p-name rounded-input" placeholder="Full Name" />
-        <input type="number" class="p-age rounded-input" placeholder="Age" />
-        <select class="p-gender rounded-input">
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-        </select>
-        <select class="p-class rounded-input" onchange="updateTotalFare()">
-            ${classOptionsHtml()}
-        </select>
-        <select class="p-seat rounded-input">
-            <option value="No Preference">No Preference</option>
-            <option value="Lower">Lower</option>
-            <option value="Middle">Middle</option>
-            <option value="Upper">Upper</option>
-            <option value="Side Lower">Side Lower</option>
-            <option value="Side Upper">Side Upper</option>
-        </select>
-    `;
-    document.getElementById('passengerList')?.appendChild(div);
+    // We just reuse the generator instead of hardcoding HTML again!
+    div.innerHTML = generatePassengerFormHtml();
+    document.getElementById('passengerList')?.appendChild(div.firstElementChild);
     if (window.updateTotalFare) window.updateTotalFare();
 }
 
